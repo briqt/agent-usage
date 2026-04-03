@@ -63,8 +63,13 @@ func (d *DB) GetCostByModel(from, to time.Time) ([]CostByModel, error) {
 	var result []CostByModel
 	for rows.Next() {
 		var r CostByModel
-		rows.Scan(&r.Model, &r.Cost)
+		if err := rows.Scan(&r.Model, &r.Cost); err != nil {
+			return nil, err
+		}
 		result = append(result, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -80,8 +85,13 @@ func (d *DB) GetCostOverTime(from, to time.Time) ([]TimeSeriesPoint, error) {
 	var result []TimeSeriesPoint
 	for rows.Next() {
 		var p TimeSeriesPoint
-		rows.Scan(&p.Date, &p.Model, &p.Value)
+		if err := rows.Scan(&p.Date, &p.Model, &p.Value); err != nil {
+			return nil, err
+		}
 		result = append(result, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -99,8 +109,13 @@ func (d *DB) GetTokensOverTime(from, to time.Time) ([]TokenTimeSeriesPoint, erro
 	var result []TokenTimeSeriesPoint
 	for rows.Next() {
 		var p TokenTimeSeriesPoint
-		rows.Scan(&p.Date, &p.InputTokens, &p.OutputTokens, &p.CacheRead, &p.CacheCreate)
+		if err := rows.Scan(&p.Date, &p.InputTokens, &p.OutputTokens, &p.CacheRead, &p.CacheCreate); err != nil {
+			return nil, err
+		}
 		result = append(result, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -122,8 +137,13 @@ func (d *DB) GetSessions(from, to time.Time) ([]SessionInfo, error) {
 	var result []SessionInfo
 	for rows.Next() {
 		var s SessionInfo
-		rows.Scan(&s.SessionID, &s.Source, &s.Project, &s.CWD, &s.GitBranch, &s.StartTime, &s.Prompts, &s.TotalCost, &s.Tokens)
+		if err := rows.Scan(&s.SessionID, &s.Source, &s.Project, &s.CWD, &s.GitBranch, &s.StartTime, &s.Prompts, &s.TotalCost, &s.Tokens); err != nil {
+			return nil, err
+		}
 		result = append(result, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

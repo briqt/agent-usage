@@ -131,28 +131,36 @@ func (c *CodexCollector) processFile(path string) error {
 		switch entry.Type {
 		case "session_meta":
 			var meta codexSessionMeta
-			json.Unmarshal(entry.Payload, &meta)
+			if err := json.Unmarshal(entry.Payload, &meta); err != nil {
+				continue
+			}
 			sessionID = meta.ID
 			cwd = meta.CWD
 			version = meta.CLIVersion
 
 		case "turn_context":
 			var tc codexTurnContext
-			json.Unmarshal(entry.Payload, &tc)
+			if err := json.Unmarshal(entry.Payload, &tc); err != nil {
+				continue
+			}
 			if tc.Model != "" {
 				model = tc.Model
 			}
 
 		case "response_item":
 			var ri codexResponseItem
-			json.Unmarshal(entry.Payload, &ri)
+			if err := json.Unmarshal(entry.Payload, &ri); err != nil {
+				continue
+			}
 			if ri.Role == "user" {
 				prompts++
 			}
 
 		case "event_msg":
 			var ep codexEventPayload
-			json.Unmarshal(entry.Payload, &ep)
+			if err := json.Unmarshal(entry.Payload, &ep); err != nil {
+				continue
+			}
 			if ep.Type == "token_count" && ep.Info != nil && ep.Info.LastTokenUsage != nil {
 				u := ep.Info.LastTokenUsage
 				rec := &storage.UsageRecord{
@@ -196,7 +204,9 @@ func (c *CodexCollector) processFile(path string) error {
 			StartTime: firstTime,
 			Prompts:   prompts,
 		}
-		c.db.UpsertSession(sess)
+		if err := c.db.UpsertSession(sess); err != nil {
+			return fmt.Errorf("upsert codex session: %w", err)
+		}
 	}
 
 	return c.db.SetFileState(path, info.Size(), info.Size())

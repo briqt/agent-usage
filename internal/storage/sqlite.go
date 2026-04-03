@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -9,6 +10,7 @@ import (
 
 type DB struct {
 	db *sql.DB
+	mu sync.Mutex
 }
 
 type UsageRecord struct {
@@ -44,6 +46,7 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
 	if err := migrate(db); err != nil {
 		return nil, err
 	}

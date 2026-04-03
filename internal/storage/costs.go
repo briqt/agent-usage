@@ -5,6 +5,9 @@ import "strings"
 type CostCalcFunc func(inputTokens, outputTokens, cacheCreation, cacheRead int64, prices [4]float64) float64
 
 func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	rows, err := d.db.Query(`SELECT id, model, input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens FROM usage_records WHERE cost_usd = 0`)
 	if err != nil {
 		return err
@@ -19,8 +22,13 @@ func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) e
 	var recs []rec
 	for rows.Next() {
 		var r rec
-		rows.Scan(&r.id, &r.model, &r.input, &r.output, &r.cc, &r.cr)
+		if err := rows.Scan(&r.id, &r.model, &r.input, &r.output, &r.cc, &r.cr); err != nil {
+			return err
+		}
 		recs = append(recs, r)
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 	rows.Close()
 
@@ -48,7 +56,9 @@ func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) e
 		}
 		cost := calcFn(r.input, r.output, r.cc, r.cr, prices)
 		if cost > 0 {
-			stmt.Exec(cost, r.id)
+			if _, err := stmt.Exec(cost, r.id); err != nil {
+				return err
+			}
 			updated++
 		}
 	}
