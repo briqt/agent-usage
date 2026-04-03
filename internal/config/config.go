@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config holds the top-level application configuration.
 type Config struct {
 	Server  ServerConfig  `yaml:"server"`
 	Collectors CollectorConfigs `yaml:"collectors"`
@@ -16,25 +17,31 @@ type Config struct {
 	Pricing PricingConfig `yaml:"pricing"`
 }
 
+// ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Port int `yaml:"port"`
+	Port        int    `yaml:"port"`
+	BindAddress string `yaml:"bind_address"`
 }
 
+// CollectorConfigs groups configuration for all data source collectors.
 type CollectorConfigs struct {
 	Claude CollectorConfig `yaml:"claude"`
 	Codex  CollectorConfig `yaml:"codex"`
 }
 
+// CollectorConfig holds settings for a single data source collector.
 type CollectorConfig struct {
 	Enabled      bool          `yaml:"enabled"`
 	Paths        []string      `yaml:"paths"`
 	ScanInterval time.Duration `yaml:"scan_interval"`
 }
 
+// StorageConfig holds SQLite database settings.
 type StorageConfig struct {
 	Path string `yaml:"path"`
 }
 
+// PricingConfig holds model pricing sync settings.
 type PricingConfig struct {
 	SyncInterval time.Duration `yaml:"sync_interval"`
 }
@@ -47,10 +54,11 @@ func expandPath(p string) string {
 	return p
 }
 
+// DefaultConfig returns a Config with sensible defaults for all fields.
 func DefaultConfig() *Config {
 	home, _ := os.UserHomeDir()
 	return &Config{
-		Server: ServerConfig{Port: 9800},
+		Server: ServerConfig{Port: 9800, BindAddress: "127.0.0.1"},
 		Collectors: CollectorConfigs{
 			Claude: CollectorConfig{
 				Enabled:      true,
@@ -63,11 +71,13 @@ func DefaultConfig() *Config {
 				ScanInterval: 60 * time.Second,
 			},
 		},
-		Storage: StorageConfig{Path: "./devobs.db"},
+		Storage: StorageConfig{Path: "./agent-usage.db"},
 		Pricing: PricingConfig{SyncInterval: time.Hour},
 	}
 }
 
+// Load reads configuration from the given YAML file path, falling back to
+// defaults for any missing fields. If the file does not exist, defaults are used.
 func Load(path string) (*Config, error) {
 	cfg := DefaultConfig()
 	data, err := os.ReadFile(path)

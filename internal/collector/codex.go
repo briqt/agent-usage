@@ -13,11 +13,13 @@ import (
 	"github.com/briqt/agent-usage/internal/storage"
 )
 
+// CodexCollector scans Codex CLI session JSONL files and extracts usage records.
 type CodexCollector struct {
 	db    *storage.DB
 	paths []string
 }
 
+// NewCodexCollector creates a CodexCollector that scans the given base paths.
 func NewCodexCollector(db *storage.DB, paths []string) *CodexCollector {
 	return &CodexCollector{db: db, paths: paths}
 }
@@ -59,6 +61,7 @@ type codexResponseItem struct {
 	Role string `json:"role"`
 }
 
+// Scan walks all configured paths and processes new JSONL data from Codex CLI sessions.
 func (c *CodexCollector) Scan() error {
 	for _, basePath := range c.paths {
 		err := filepath.Walk(basePath, func(path string, info os.FileInfo, err error) error {

@@ -21,6 +21,6 @@ agent-usage runs locally and processes local files. Key security considerations:
 
 ## Best Practices
 
-- Bind the server to `127.0.0.1` instead of `0.0.0.0` if you don't need remote access
+- The server binds to `127.0.0.1` by default (local-only). Set `bind_address: "0.0.0.0"` in config.yaml only if you need remote access
 - Keep the SQLite database file permissions restricted
 - Review `config.yaml` before sharing or committing

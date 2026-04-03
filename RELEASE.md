@@ -32,6 +32,7 @@ v0.2.0-rc.1       # 发布候选
 [ ] 所有目标功能已合并到 main
 [ ] go build 编译通过（无 warning）
 [ ] go vet ./... 无问题
+[ ] go test ./... 全部通过
 [ ] 本地运行测试，数据解析正常
 [ ] CHANGELOG.md 已更新（将 [Unreleased] 内容移至新版本号下）
 [ ] README 已更新（如有用户可见变更）

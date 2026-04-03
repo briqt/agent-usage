@@ -7,6 +7,7 @@ import (
 
 // File state tracking
 
+// GetFileState returns the last known size and read offset for a file path.
 func (d *DB) GetFileState(path string) (size, offset int64, err error) {
 	err = d.db.QueryRow("SELECT size, last_offset FROM file_state WHERE path=?", path).Scan(&size, &offset)
 	if err == sql.ErrNoRows {
@@ -15,6 +16,7 @@ func (d *DB) GetFileState(path string) (size, offset int64, err error) {
 	return
 }
 
+// SetFileState records the current size and read offset for a file path.
 func (d *DB) SetFileState(path string, size, offset int64) error {
 	_, err := d.db.Exec(`INSERT INTO file_state(path,size,last_offset) VALUES(?,?,?)
 		ON CONFLICT(path) DO UPDATE SET size=excluded.size, last_offset=excluded.last_offset`, path, size, offset)
@@ -23,6 +25,7 @@ func (d *DB) SetFileState(path string, size, offset int64) error {
 
 // Sessions
 
+// UpsertSession inserts or updates a session record, merging non-empty fields.
 func (d *DB) UpsertSession(s *SessionRecord) error {
 	_, err := d.db.Exec(`INSERT INTO sessions(source,session_id,project,cwd,version,git_branch,start_time,prompts)
 		VALUES(?,?,?,?,?,?,?,?)
@@ -39,8 +42,9 @@ func (d *DB) UpsertSession(s *SessionRecord) error {
 
 // Usage records
 
+// InsertUsage inserts a single usage record, ignoring duplicates.
 func (d *DB) InsertUsage(r *UsageRecord) error {
-	_, err := d.db.Exec(`INSERT INTO usage_records(source,session_id,model,input_tokens,output_tokens,
+	_, err := d.db.Exec(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
 		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch)
 		VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.Source, r.SessionID, r.Model, r.InputTokens, r.OutputTokens,
@@ -49,13 +53,15 @@ func (d *DB) InsertUsage(r *UsageRecord) error {
 	return err
 }
 
+// InsertUsageBatch inserts multiple usage records in a single transaction,
+// ignoring duplicates.
 func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 	tx, err := d.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	stmt, err := tx.Prepare(`INSERT INTO usage_records(source,session_id,model,input_tokens,output_tokens,
+	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
 		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch)
 		VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
@@ -75,6 +81,7 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 
 // Pricing
 
+// UpsertPricing inserts or updates per-token pricing for a model.
 func (d *DB) UpsertPricing(model string, inputCost, outputCost, cacheReadCost, cacheCreationCost float64) error {
 	_, err := d.db.Exec(`INSERT INTO pricing(model,input_cost_per_token,output_cost_per_token,
 		cache_read_input_token_cost,cache_creation_input_token_cost,updated_at)
@@ -89,6 +96,7 @@ func (d *DB) UpsertPricing(model string, inputCost, outputCost, cacheReadCost, c
 	return err
 }
 
+// GetPricing returns per-token costs for a specific model.
 func (d *DB) GetPricing(model string) (inputCost, outputCost, cacheReadCost, cacheCreationCost float64, err error) {
 	err = d.db.QueryRow("SELECT input_cost_per_token,output_cost_per_token,cache_read_input_token_cost,cache_creation_input_token_cost FROM pricing WHERE model=?", model).
 		Scan(&inputCost, &outputCost, &cacheReadCost, &cacheCreationCost)
@@ -98,6 +106,8 @@ func (d *DB) GetPricing(model string) (inputCost, outputCost, cacheReadCost, cac
 	return
 }
 
+// GetAllPricing returns per-token costs for all models as a map keyed by model name.
+// The array values are [input, output, cache_read, cache_creation] costs.
 func (d *DB) GetAllPricing() (map[string][4]float64, error) {
 	rows, err := d.db.Query("SELECT model,input_cost_per_token,output_cost_per_token,cache_read_input_token_cost,cache_creation_input_token_cost FROM pricing")
 	if err != nil {

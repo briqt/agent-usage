@@ -23,3 +23,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Incremental file scanning with deduplication
 - GoReleaser CI/CD for cross-platform releases
 - Bilingual documentation (English + Chinese)
+- Unit tests for collectors, pricing calculation, and storage layer
+- Godoc comments on all exported types and functions
+- GitHub issue templates (bug report, feature request) and PR template
+- Unique index on usage_records for crash-recovery deduplication
+
+### Changed
+- Server binds to `127.0.0.1` by default instead of `0.0.0.0`
+- Added `bind_address` config option for server
+- Default database filename changed from `devobs.db` to `agent-usage.db`
+- INSERT statements use `INSERT OR IGNORE` for idempotent crash recovery

@@ -51,6 +51,7 @@ open http://localhost:9800
 ```yaml
 server:
   port: 9800
+  bind_address: "127.0.0.1"  # use "0.0.0.0" for remote access
 
 collectors:
   claude:
@@ -113,13 +114,13 @@ agent-usage
 │   ├── pricing/                # litellm price fetcher + cost formula
 │   ├── storage/
 │   │   ├── sqlite.go           # DB init + migrations
-│   │   ├── api.go              # Write operations
-│   │   ├── queries.go          # Read/query operations
+│   │   ├── api.go              # Query types + read operations
+│   │   ├── queries.go          # Write operations
 │   │   └── costs.go            # Cost recalculation + backfill
 │   └── server/
 │       ├── server.go           # HTTP server + REST API
 │       └── static/             # Embedded web UI (HTML + JS + ECharts)
-└── agent-usage.db              # SQLite database (generated)
+└── agent-usage.db              # SQLite database (generated at runtime)
 ```
 
 ## Cost Calculation
