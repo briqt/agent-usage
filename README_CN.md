@@ -32,13 +32,13 @@ AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件
 
 ```bash
 # 一条命令启动
-docker compose up -d
+mkdir -p ./data && docker compose up -d
 
 # 打开仪表板
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在命名卷中。
+默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在 `./data/` 目录。权限详情见 [Docker](#docker) 章节。
 
 ### 从源码编译
 
@@ -173,16 +173,34 @@ agent-usage
 预构建多架构镜像（amd64 + arm64）发布在 `ghcr.io/briqt/agent-usage`。
 
 ```bash
-docker run -d \
-  --name agent-usage \
-  -p 9800:9800 \
-  -v agent-usage-data:/data \
-  -v ~/.claude/projects:/sessions/claude:ro \
-  -v ~/.codex/sessions:/sessions/codex:ro \
-  ghcr.io/briqt/agent-usage:latest
+# 创建数据目录并启动
+mkdir -p ./data
+docker compose up -d
+
+# 打开仪表板
+open http://localhost:9800
 ```
 
-也可以使用 `docker compose up -d` 配合项目自带的 `docker-compose.yml`。
+默认 `docker-compose.yml` 以 UID 1000 运行。如果你的用户 UID 不同，请修改 `user:` 字段：
+
+```bash
+# 查看你的 UID/GID
+id -u  # 例如 1000
+id -g  # 例如 1000
+
+# 编辑 docker-compose.yml: user: "你的UID:你的GID"
+```
+
+这是必需的，因为 `~/.claude/projects` 目录权限为 700，只有对应 UID 才能读取。
+
+### 本地构建
+
+```bash
+docker build -t agent-usage:local .
+
+# 中国大陆用户，使用 GOPROXY 加速：
+docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
+```
 
 配置文件搜索顺序：`--config` 参数 > `/etc/agent-usage/config.yaml` > `./config.yaml`。
 

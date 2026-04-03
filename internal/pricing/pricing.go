@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/briqt/agent-usage/internal/storage"
 )
@@ -21,7 +22,8 @@ type modelPricing struct {
 // Sync fetches model pricing from the litellm GitHub repository and upserts
 // it into the database. Only models relevant to AI coding agents are stored.
 func Sync(db *storage.DB) error {
-	resp, err := http.Get(pricingURL)
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(pricingURL)
 	if err != nil {
 		return err
 	}
