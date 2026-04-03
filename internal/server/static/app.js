@@ -8,7 +8,7 @@ const I18N = {
     today:'Today',thisWeek:'This Week',thisMonth:'This Month',thisYear:'This Year',
     last3d:'Last 3 Days',last7d:'Last 7 Days',last30d:'Last 30 Days',custom:'Custom',
     light:'Light',dark:'Dark',system:'System',
-    autoOn:'Auto',autoOff:'Auto',refreshIn:'refresh in',
+    autoOn:'Auto',autoOff:'Auto',
     input:'Input',output:'Output',cacheRead:'Cache Read',cacheCreate:'Cache Create',
     gran_1m:'1min',gran_30m:'30min',gran_1h:'1h',gran_6h:'6h',gran_12h:'12h',gran_1d:'1d',gran_1w:'1w',gran_1M:'1mo',
     model:'Model',calls:'Calls',allSources:'All Sources',claudeCode:'Claude Code',codex:'Codex',
@@ -23,7 +23,7 @@ const I18N = {
     today:'今天',thisWeek:'本周',thisMonth:'本月',thisYear:'今年',
     last3d:'近3天',last7d:'近7天',last30d:'近30天',custom:'自定义',
     light:'浅色',dark:'深色',system:'跟随系统',
-    autoOn:'自动',autoOff:'自动',refreshIn:'刷新倒计时',
+    autoOn:'自动',autoOff:'自动',
     input:'输入',output:'输出',cacheRead:'缓存读取',cacheCreate:'缓存创建',
     gran_1m:'1分钟',gran_30m:'30分钟',gran_1h:'1小时',gran_6h:'6小时',gran_12h:'12小时',gran_1d:'1天',gran_1w:'1周',gran_1M:'1月',
     model:'模型',calls:'调用次数',allSources:'全部来源',claudeCode:'Claude Code',codex:'Codex',
@@ -54,8 +54,6 @@ let state = {
 };
 
 let autoTimer = null;
-let countdownTimer = null;
-let countdown = 0;
 let charts = {};
 
 // Session table state
@@ -385,27 +383,11 @@ function initSessionControls() {
 function startAutoRefresh() {
   stopAutoRefresh();
   if (!state.autoRefresh) return;
-  countdown = state.refreshInterval;
-  updateCountdown();
-  countdownTimer = setInterval(() => {
-    countdown--;
-    if (countdown <= 0) {
-      refresh();
-      countdown = state.refreshInterval;
-    }
-    updateCountdown();
-  }, 1000);
+  autoTimer = setInterval(() => refresh(), state.refreshInterval * 1000);
 }
 
 function stopAutoRefresh() {
-  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-  $('refresh-indicator').textContent = '';
-}
-
-function updateCountdown() {
-  if (!state.autoRefresh) { $('refresh-indicator').textContent = ''; return; }
-  const m = Math.floor(countdown / 60), s = countdown % 60;
-  $('refresh-indicator').textContent = t('refreshIn') + ' ' + (m > 0 ? m + 'm' : '') + s + 's';
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
 }
 
 // ── UI Setup ──
