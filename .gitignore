@@ -1,0 +1,4 @@
+devobs
+devobs.db
+*.db-wal
+*.db-shm
