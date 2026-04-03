@@ -1,0 +1,80 @@
+name: Auto Tag
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: latest
+        run: |
+          tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Determine bump type
+        id: bump
+        run: |
+          latest="${{ steps.latest.outputs.tag }}"
+          # Get commits since last tag
+          if [ "$latest" = "v0.0.0" ]; then
+            commits=$(git log --oneline --format="%s")
+          else
+            commits=$(git log "${latest}..HEAD" --oneline --format="%s")
+          fi
+          
+          if [ -z "$commits" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Check for breaking changes or feat/fix
+          if echo "$commits" | grep -qiE '^feat!|^fix!|BREAKING CHANGE'; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$commits" | grep -qiE '^feat'; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          elif echo "$commits" | grep -qiE '^fix|^perf|^refactor'; then
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version
+        if: steps.bump.outputs.skip != 'true'
+        id: version
+        run: |
+          latest="${{ steps.latest.outputs.tag }}"
+          type="${{ steps.bump.outputs.type }}"
+          
+          # Parse semver
+          ver=${latest#v}
+          IFS='.' read -r major minor patch <<< "$ver"
+          
+          case "$type" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          
+          new="v${major}.${minor}.${patch}"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+          echo "Bumping $latest -> $new ($type)"
+
+      - name: Create tag
+        if: steps.bump.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.new }}" -m "Release ${{ steps.version.outputs.new }}"
+          git push origin "${{ steps.version.outputs.new }}"
