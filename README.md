@@ -32,13 +32,13 @@ AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered 
 
 ```bash
 # One command to start
-docker compose up -d
+mkdir -p ./data && docker compose up -d
 
 # Open dashboard
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in a named volume.
+The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in `./data/`. See the [Docker](#docker) section for permission details.
 
 ### Build from Source
 
@@ -173,16 +173,34 @@ When prices update, historical records are automatically backfilled.
 Pre-built multi-arch images (amd64 + arm64) are published to `ghcr.io/briqt/agent-usage`.
 
 ```bash
-docker run -d \
-  --name agent-usage \
-  -p 9800:9800 \
-  -v agent-usage-data:/data \
-  -v ~/.claude/projects:/sessions/claude:ro \
-  -v ~/.codex/sessions:/sessions/codex:ro \
-  ghcr.io/briqt/agent-usage:latest
+# Create data directory and start
+mkdir -p ./data
+docker compose up -d
+
+# Open dashboard
+open http://localhost:9800
 ```
 
-Or use `docker compose up -d` with the included `docker-compose.yml`.
+The default `docker-compose.yml` runs as UID 1000. If your host user has a different UID, edit the `user:` field:
+
+```bash
+# Check your UID/GID
+id -u  # e.g. 1000
+id -g  # e.g. 1000
+
+# Edit docker-compose.yml: user: "YOUR_UID:YOUR_GID"
+```
+
+This is required because `~/.claude/projects` is mode 700 — only the owning UID can read it.
+
+### Building locally
+
+```bash
+docker build -t agent-usage:local .
+
+# For China mainland, use GOPROXY:
+docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
+```
 
 Config search order: `--config` flag > `/etc/agent-usage/config.yaml` > `./config.yaml`.
 

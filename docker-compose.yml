@@ -3,16 +3,21 @@ services:
     image: ghcr.io/briqt/agent-usage:latest
     container_name: agent-usage
     restart: unless-stopped
+    # Run as host user so bind-mounted dirs (especially ~/.claude with mode 700) are readable.
+    # Change to match your UID/GID: run `id -u` and `id -g` to find yours.
+    user: "1000:1000"
     ports:
       - "9800:9800"
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      # Uncomment for China proxy (only affects builds, not runtime):
+      # - GOPROXY=https://goproxy.cn,direct
     volumes:
       # Persistent database
-      - agent-usage-data:/data
+      - ./data:/data
       # Host session directories (read-only)
       - ~/.claude/projects:/sessions/claude:ro
       - ~/.codex/sessions:/sessions/codex:ro
       # Optional: custom config override
       # - ./config.yaml:/etc/agent-usage/config.yaml:ro
 
-volumes:
-  agent-usage-data:

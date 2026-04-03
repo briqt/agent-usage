@@ -53,5 +53,6 @@ jobs:
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
             DATE=${{ github.event.head_commit.timestamp }}
+            GOPROXY=${{ vars.GOPROXY || 'https://proxy.golang.org,direct' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
