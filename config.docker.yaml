@@ -16,4 +16,5 @@ storage:
   path: "/data/agent-usage.db"
 
 pricing:
+  # Prices are fetched from GitHub (litellm). Set HTTPS_PROXY env var if this fails.
   sync_interval: 1h

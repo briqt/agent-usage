@@ -26,9 +26,7 @@ AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件
 - 📦 **单二进制** —— `go:embed` 将 Web UI 打包进可执行文件
 - 🖥️ **跨平台** —— Linux、macOS、Windows
 
-## 快速开始
-
-### Docker（推荐）
+## 快速开始（Docker）
 
 ```bash
 # 一条命令启动
@@ -38,28 +36,17 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在 `./data/` 目录。权限详情见 [Docker](#docker) 章节。
+默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在 `./data/` 目录。
 
-### 从源码编译
+容器默认使用 `config.docker.yaml`（绑定 `0.0.0.0`，数据存储在 `/data/`）。如需自定义配置，挂载你自己的配置文件：
 
-```bash
-# 克隆
-git clone https://github.com/briqt/agent-usage.git
-cd agent-usage
-
-# 编译
-go build -o agent-usage .
-
-# 编辑配置
-cp config.yaml config.local.yaml
-# 按需调整路径
-
-# 运行
-./agent-usage
-
-# 打开仪表板
-open http://localhost:9800
+```yaml
+# 在 docker-compose.yml 中取消注释：
+volumes:
+  - ./config.yaml:/etc/agent-usage/config.yaml:ro
 ```
+
+UID/GID 权限及本地构建详见 [Docker 详情](#docker-详情)。
 
 ## 配置
 
@@ -84,7 +71,30 @@ storage:
   path: "./agent-usage.db"
 
 pricing:
-  sync_interval: 1h
+  sync_interval: 1h  # 从 GitHub 获取价格；如失败请设置 HTTPS_PROXY 环境变量
+```
+
+配置文件搜索顺序：`--config` 参数 > `/etc/agent-usage/config.yaml` > `./config.yaml`。
+
+## 从源码编译
+
+```bash
+# 克隆
+git clone https://github.com/briqt/agent-usage.git
+cd agent-usage
+
+# 编译
+go build -o agent-usage .
+
+# 编辑配置
+cp config.yaml config.local.yaml
+# 按需调整路径
+
+# 运行
+./agent-usage
+
+# 打开仪表板
+open http://localhost:9800
 ```
 
 ## 支持的数据源
@@ -168,18 +178,9 @@ agent-usage
 - **ECharts** —— 图表库
 - **`go:embed`** —— 单二进制部署
 
-## Docker
+## Docker 详情
 
 预构建多架构镜像（amd64 + arm64）发布在 `ghcr.io/briqt/agent-usage`。
-
-```bash
-# 创建数据目录并启动
-mkdir -p ./data
-docker compose up -d
-
-# 打开仪表板
-open http://localhost:9800
-```
 
 默认 `docker-compose.yml` 以 UID 1000 运行。如果你的用户 UID 不同，请修改 `user:` 字段：
 
@@ -201,8 +202,6 @@ docker build -t agent-usage:local .
 # 中国大陆用户，使用 GOPROXY 加速：
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
-
-配置文件搜索顺序：`--config` 参数 > `/etc/agent-usage/config.yaml` > `./config.yaml`。
 
 ## 路线图
 

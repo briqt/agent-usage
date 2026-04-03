@@ -26,9 +26,7 @@ AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered 
 - 📦 **Single binary** — `go:embed` packs the web UI into the executable
 - 🖥️ **Cross-platform** — Linux, macOS, Windows
 
-## Quick Start
-
-### Docker (recommended)
+## Quick Start (Docker)
 
 ```bash
 # One command to start
@@ -38,28 +36,17 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in `./data/`. See the [Docker](#docker) section for permission details.
+The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in `./data/`.
 
-### Build from Source
+The container uses `config.docker.yaml` by default (binds to `0.0.0.0`, stores data in `/data/`). To override, mount your own config:
 
-```bash
-# Clone
-git clone https://github.com/briqt/agent-usage.git
-cd agent-usage
-
-# Build
-go build -o agent-usage .
-
-# Edit config
-cp config.yaml config.local.yaml
-# Adjust paths if needed
-
-# Run
-./agent-usage
-
-# Open dashboard
-open http://localhost:9800
+```yaml
+# In docker-compose.yml, uncomment:
+volumes:
+  - ./config.yaml:/etc/agent-usage/config.yaml:ro
 ```
+
+See [Docker Details](#docker-details) for UID/GID permissions and local builds.
 
 ## Configuration
 
@@ -84,7 +71,30 @@ storage:
   path: "./agent-usage.db"
 
 pricing:
-  sync_interval: 1h
+  sync_interval: 1h  # fetched from GitHub; set HTTPS_PROXY env var if this fails
+```
+
+Config search order: `--config` flag > `/etc/agent-usage/config.yaml` > `./config.yaml`.
+
+## Build from Source
+
+```bash
+# Clone
+git clone https://github.com/briqt/agent-usage.git
+cd agent-usage
+
+# Build
+go build -o agent-usage .
+
+# Edit config
+cp config.yaml config.local.yaml
+# Adjust paths if needed
+
+# Run
+./agent-usage
+
+# Open dashboard
+open http://localhost:9800
 ```
 
 ## Supported Data Sources
@@ -168,18 +178,9 @@ When prices update, historical records are automatically backfilled.
 - **ECharts** — charting library
 - **`go:embed`** — single binary deployment
 
-## Docker
+## Docker Details
 
 Pre-built multi-arch images (amd64 + arm64) are published to `ghcr.io/briqt/agent-usage`.
-
-```bash
-# Create data directory and start
-mkdir -p ./data
-docker compose up -d
-
-# Open dashboard
-open http://localhost:9800
-```
 
 The default `docker-compose.yml` runs as UID 1000. If your host user has a different UID, edit the `user:` field:
 
@@ -201,8 +202,6 @@ docker build -t agent-usage:local .
 # For China mainland, use GOPROXY:
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
-
-Config search order: `--config` flag > `/etc/agent-usage/config.yaml` > `./config.yaml`.
 
 ## Roadmap
 

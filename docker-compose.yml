@@ -10,6 +10,8 @@ services:
       - "9800:9800"
     environment:
       - TZ=${TZ:-Asia/Shanghai}
+      # Pricing sync fetches from GitHub. Uncomment if network access to GitHub is restricted:
+      # - HTTPS_PROXY=http://your-proxy:port
       # Uncomment for China proxy (only affects builds, not runtime):
       # - GOPROXY=https://goproxy.cn,direct
     volumes:
