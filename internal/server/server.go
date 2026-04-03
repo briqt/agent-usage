@@ -67,11 +67,16 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func serverError(w http.ResponseWriter, err error) {
+	log.Printf("api error: %v", err)
+	http.Error(w, "internal server error", 500)
+}
+
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	stats, err := s.db.GetDashboardStats(from, to)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		serverError(w, err)
 		return
 	}
 	writeJSON(w, stats)
@@ -81,7 +86,7 @@ func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	data, err := s.db.GetCostByModel(from, to)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		serverError(w, err)
 		return
 	}
 	writeJSON(w, data)
@@ -91,7 +96,7 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	data, err := s.db.GetCostOverTime(from, to)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		serverError(w, err)
 		return
 	}
 	writeJSON(w, data)
@@ -101,7 +106,7 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	data, err := s.db.GetTokensOverTime(from, to)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		serverError(w, err)
 		return
 	}
 	writeJSON(w, data)
@@ -111,7 +116,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	data, err := s.db.GetSessions(from, to)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		serverError(w, err)
 		return
 	}
 	writeJSON(w, data)

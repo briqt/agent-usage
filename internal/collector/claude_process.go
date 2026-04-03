@@ -138,7 +138,9 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 			StartTime: firstTime,
 			Prompts:   prompts,
 		}
-		c.db.UpsertSession(sess)
+		if err := c.db.UpsertSession(sess); err != nil {
+			return fmt.Errorf("upsert claude session: %w", err)
+		}
 	}
 
 	return c.db.SetFileState(path, info.Size(), info.Size())

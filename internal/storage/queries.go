@@ -113,5 +113,8 @@ func (d *DB) GetAllPricing() (map[string][4]float64, error) {
 		}
 		m[model] = costs
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return m, nil
 }
