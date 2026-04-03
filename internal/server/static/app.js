@@ -11,6 +11,9 @@ const I18N = {
     autoOn:'Auto',autoOff:'Auto',refreshIn:'refresh in',
     input:'Input',output:'Output',cacheRead:'Cache Read',cacheCreate:'Cache Create',
     gran_1m:'1min',gran_30m:'30min',gran_1h:'1h',gran_6h:'6h',gran_12h:'12h',gran_1d:'1d',gran_1w:'1w',gran_1M:'1mo',
+    model:'Model',calls:'Calls',allSources:'All Sources',claudeCode:'Claude Code',codex:'Codex',
+    filterProject:'Filter by project...',justNow:'just now',mAgo:'m ago',hAgo:'h ago',dAgo:'d ago',
+    noSessions:'No sessions found',
   },
   zh: {
     title:'AI 使用仪表盘',to:'至',totalCost:'总费用',totalTokens:'总 Token',
@@ -23,6 +26,9 @@ const I18N = {
     autoOn:'自动',autoOff:'自动',refreshIn:'刷新倒计时',
     input:'输入',output:'输出',cacheRead:'缓存读取',cacheCreate:'缓存创建',
     gran_1m:'1分钟',gran_30m:'30分钟',gran_1h:'1小时',gran_6h:'6小时',gran_12h:'12小时',gran_1d:'1天',gran_1w:'1周',gran_1M:'1月',
+    model:'模型',calls:'调用次数',allSources:'全部来源',claudeCode:'Claude Code',codex:'Codex',
+    filterProject:'按项目筛选...',justNow:'刚刚',mAgo:'分钟前',hAgo:'小时前',dAgo:'天前',
+    noSessions:'暂无会话',
   }
 };
 
@@ -51,6 +57,13 @@ let autoTimer = null;
 let countdownTimer = null;
 let countdown = 0;
 let charts = {};
+
+// Session table state
+let allSessions = [];
+let sessionSort = { key: 'start_time', dir: 'desc' };
+let sessionPage = 1;
+const PAGE_SIZE = 20;
+let expandedSessions = new Set();
 
 // ── Helpers ──
 function t(key) { return (I18N[state.lang] || I18N.en)[key] || key; }
@@ -196,13 +209,176 @@ async function refresh() {
   }, true);
 
   // Session table
+  allSessions = sessions || [];
+  renderSessionTable();
+}
+
+// ── Relative time ──
+function relTime(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts.replace(' ', 'T').replace(' +0000 UTC', 'Z'));
+  if (isNaN(d)) return ts.replace('T', ' ').slice(0, 16);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return t('justNow');
+  if (diff < 3600) return Math.floor(diff / 60) + t('mAgo');
+  if (diff < 86400) return Math.floor(diff / 3600) + t('hAgo');
+  if (diff < 604800) return Math.floor(diff / 86400) + t('dAgo');
+  return d.toLocaleDateString();
+}
+
+function relTimeTitle(ts) {
+  if (!ts) return '';
+  return ts.replace('T', ' ').slice(0, 19);
+}
+
+// ── Session table ──
+function getFilteredSessions() {
+  const srcFilter = $('filter-source').value;
+  const projFilter = ($('filter-project').value || '').toLowerCase();
+  return allSessions.filter(s => {
+    if (srcFilter && s.source !== srcFilter) return false;
+    if (projFilter) {
+      const proj = (s.project || s.cwd || '').toLowerCase();
+      if (!proj.includes(projFilter)) return false;
+    }
+    return true;
+  });
+}
+
+function getSortedSessions(filtered) {
+  const k = sessionSort.key;
+  const dir = sessionSort.dir === 'asc' ? 1 : -1;
+  return [...filtered].sort((a, b) => {
+    let va = a[k], vb = b[k];
+    if (k === 'start_time') {
+      va = va || ''; vb = vb || '';
+      return va < vb ? -dir : va > vb ? dir : 0;
+    }
+    if (typeof va === 'number' || typeof vb === 'number') {
+      return ((va || 0) - (vb || 0)) * dir;
+    }
+    va = (va || '').toLowerCase(); vb = (vb || '').toLowerCase();
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+}
+
+function renderSessionTable() {
+  const filtered = getFilteredSessions();
+  const sorted = getSortedSessions(filtered);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  if (sessionPage > totalPages) sessionPage = totalPages;
+  const start = (sessionPage - 1) * PAGE_SIZE;
+  const page = sorted.slice(start, start + PAGE_SIZE);
+
+  // Update sort arrows
+  document.querySelectorAll('.sortable').forEach(th => {
+    const k = th.dataset.sort;
+    th.classList.remove('asc', 'desc');
+    let arrow = th.querySelector('.sort-arrow');
+    if (!arrow) { arrow = document.createElement('span'); arrow.className = 'sort-arrow'; th.appendChild(arrow); }
+    if (k === sessionSort.key) {
+      th.classList.add(sessionSort.dir);
+      arrow.textContent = sessionSort.dir === 'asc' ? '\u25B2' : '\u25BC';
+    } else {
+      arrow.textContent = '\u25B4';
+    }
+  });
+
   const tb = $('session-table');
-  tb.innerHTML = (sessions || []).map(s => `<tr>
-    <td><span class="badge ${s.source}">${s.source}</span></td>
-    <td title="${s.cwd}">${s.project || s.cwd || '-'}</td>
-    <td>${s.git_branch || '-'}</td>
-    <td>${s.start_time ? s.start_time.replace('T', ' ').slice(0, 16) : '-'}</td>
-    <td>${s.prompts}</td><td>${fmt(s.tokens || 0)}</td><td>${fmtCost(s.total_cost || 0)}</td></tr>`).join('');
+  if (page.length === 0) {
+    tb.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">${t('noSessions')}</td></tr>`;
+  } else {
+    tb.innerHTML = page.map(s => {
+      const expanded = expandedSessions.has(s.session_id);
+      return `<tr class="session-row" data-sid="${s.session_id}">
+        <td><span class="badge ${s.source}">${s.source}</span></td>
+        <td title="${s.cwd || ''}">${s.project || s.cwd || '-'}</td>
+        <td>${s.git_branch || '-'}</td>
+        <td title="${relTimeTitle(s.start_time)}">${relTime(s.start_time)}</td>
+        <td>${s.prompts}</td><td>${fmt(s.tokens || 0)}</td><td>${fmtCost(s.total_cost || 0)}</td>
+        <td><button class="expand-btn${expanded ? ' open' : ''}" data-sid="${s.session_id}">\u25B6</button></td>
+      </tr>${expanded ? `<tr class="detail-row" data-sid="${s.session_id}"><td colspan="8"><div class="detail-content" id="detail-${s.session_id}">Loading...</div></td></tr>` : ''}`;
+    }).join('');
+  }
+
+  // Pagination
+  const pag = $('pagination');
+  if (totalPages <= 1) {
+    pag.innerHTML = filtered.length > 0 ? `<span class="page-info">${filtered.length} sessions</span>` : '';
+  } else {
+    let html = `<span class="page-info">${start + 1}-${Math.min(start + PAGE_SIZE, sorted.length)} of ${sorted.length}</span>`;
+    if (sessionPage > 1) html += `<button class="page-btn" data-page="${sessionPage - 1}">\u2190</button>`;
+    const maxBtns = 7;
+    let pStart = Math.max(1, sessionPage - 3);
+    let pEnd = Math.min(totalPages, pStart + maxBtns - 1);
+    if (pEnd - pStart < maxBtns - 1) pStart = Math.max(1, pEnd - maxBtns + 1);
+    for (let i = pStart; i <= pEnd; i++) {
+      html += `<button class="page-btn${i === sessionPage ? ' active' : ''}" data-page="${i}">${i}</button>`;
+    }
+    if (sessionPage < totalPages) html += `<button class="page-btn" data-page="${sessionPage + 1}">\u2192</button>`;
+    pag.innerHTML = html;
+  }
+
+  // Bind events
+  tb.querySelectorAll('.expand-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      toggleSessionDetail(btn.dataset.sid);
+    };
+  });
+  pag.querySelectorAll('.page-btn').forEach(btn => {
+    btn.onclick = () => { sessionPage = parseInt(btn.dataset.page); renderSessionTable(); };
+  });
+}
+
+async function toggleSessionDetail(sid) {
+  if (expandedSessions.has(sid)) {
+    expandedSessions.delete(sid);
+    renderSessionTable();
+    return;
+  }
+  expandedSessions.add(sid);
+  renderSessionTable();
+  // Fetch detail
+  try {
+    const res = await fetch('/api/session-detail?session_id=' + encodeURIComponent(sid));
+    const data = await res.json();
+    const el = document.getElementById('detail-' + sid);
+    if (!el) return;
+    if (!data || data.length === 0) {
+      el.textContent = 'No usage data';
+      return;
+    }
+    el.innerHTML = `<table class="detail-table"><thead><tr>
+      <th>${t('model')}</th><th>${t('calls')}</th><th>${t('input')}</th><th>${t('output')}</th>
+      <th>${t('cacheRead')}</th><th>${t('cacheCreate')}</th><th>${t('cost')}</th>
+    </tr></thead><tbody>${data.map(d => `<tr>
+      <td>${d.model}</td><td>${d.calls}</td><td>${fmt(d.input_tokens)}</td><td>${fmt(d.output_tokens)}</td>
+      <td>${fmt(d.cache_read)}</td><td>${fmt(d.cache_create)}</td><td>${fmtCost(d.cost_usd)}</td>
+    </tr>`).join('')}</tbody></table>`;
+  } catch (e) {
+    const el = document.getElementById('detail-' + sid);
+    if (el) el.textContent = 'Error loading details';
+  }
+}
+
+function initSessionControls() {
+  // Sort headers
+  document.querySelectorAll('.sortable').forEach(th => {
+    th.onclick = () => {
+      const k = th.dataset.sort;
+      if (sessionSort.key === k) {
+        sessionSort.dir = sessionSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sessionSort.key = k;
+        sessionSort.dir = (k === 'start_time' || k === 'total_cost' || k === 'tokens' || k === 'prompts') ? 'desc' : 'asc';
+      }
+      renderSessionTable();
+    };
+  });
+  // Filters
+  $('filter-source').onchange = () => { sessionPage = 1; renderSessionTable(); };
+  $('filter-project').oninput = () => { sessionPage = 1; renderSessionTable(); };
 }
 
 // ── Auto Refresh ──
@@ -309,5 +485,6 @@ window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', () =
 initCharts();
 buildControls();
 applyI18n();
+initSessionControls();
 refresh();
 startAutoRefresh();

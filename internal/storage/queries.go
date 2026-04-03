@@ -7,6 +7,33 @@ import (
 
 // File state tracking
 
+// GetMeta returns the value for a meta key, or empty string if not found.
+func (d *DB) GetMeta(key string) (string, error) {
+	var val string
+	err := d.db.QueryRow("SELECT value FROM meta WHERE key=?", key).Scan(&val)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return val, err
+}
+
+// SetMeta sets a meta key-value pair.
+func (d *DB) SetMeta(key, value string) error {
+	_, err := d.db.Exec(`INSERT INTO meta(key,value) VALUES(?,?)
+		ON CONFLICT(key) DO UPDATE SET value=excluded.value`, key, value)
+	return err
+}
+
+// ResetScanState clears file_state and sessions tables to force a full re-scan.
+func (d *DB) ResetScanState() error {
+	_, err := d.db.Exec("DELETE FROM file_state")
+	if err != nil {
+		return err
+	}
+	_, err = d.db.Exec("DELETE FROM sessions")
+	return err
+}
+
 // GetFileState returns the last known size and read offset for a file path.
 func (d *DB) GetFileState(path string) (size, offset int64, err error) {
 	err = d.db.QueryRow("SELECT size, last_offset FROM file_state WHERE path=?", path).Scan(&size, &offset)

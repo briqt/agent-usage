@@ -109,6 +109,11 @@ func migrate(db *sql.DB) error {
 			cache_creation_input_token_cost REAL DEFAULT 0,
 			updated_at DATETIME
 		);
+
+		CREATE TABLE IF NOT EXISTS meta (
+			key TEXT PRIMARY KEY,
+			value TEXT DEFAULT ''
+		);
 	`)
 	return err
 }

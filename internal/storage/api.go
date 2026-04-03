@@ -164,6 +164,40 @@ func (d *DB) GetTokensOverTime(from, to time.Time, granularity string) ([]TokenT
 	return result, nil
 }
 
+// SessionDetail represents per-model breakdown for a single session.
+type SessionDetail struct {
+	Model        string  `json:"model"`
+	Calls        int     `json:"calls"`
+	InputTokens  int64   `json:"input_tokens"`
+	OutputTokens int64   `json:"output_tokens"`
+	CacheRead    int64   `json:"cache_read"`
+	CacheCreate  int64   `json:"cache_create"`
+	CostUSD      float64 `json:"cost_usd"`
+}
+
+// GetSessionDetail returns per-model usage breakdown for a specific session.
+func (d *DB) GetSessionDetail(sessionID string) ([]SessionDetail, error) {
+	rows, err := d.db.Query(`SELECT model, COUNT(*) as calls,
+		SUM(input_tokens) as inp, SUM(output_tokens) as outp,
+		SUM(cache_read_input_tokens) as cr, SUM(cache_creation_input_tokens) as cc,
+		SUM(cost_usd) as cost
+		FROM usage_records WHERE session_id=?
+		GROUP BY model ORDER BY cost DESC`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []SessionDetail
+	for rows.Next() {
+		var d SessionDetail
+		if err := rows.Scan(&d.Model, &d.Calls, &d.InputTokens, &d.OutputTokens, &d.CacheRead, &d.CacheCreate, &d.CostUSD); err != nil {
+			return nil, err
+		}
+		result = append(result, d)
+	}
+	return result, rows.Err()
+}
+
 // GetSessions returns sessions with aggregated cost and token totals within the given time range.
 func (d *DB) GetSessions(from, to time.Time) ([]SessionInfo, error) {
 	rows, err := d.db.Query(`SELECT s.session_id, s.source, s.project, s.cwd, s.git_branch,

@@ -37,6 +37,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/cost-over-time", s.handleCostOverTime)
 	mux.HandleFunc("/api/tokens-over-time", s.handleTokensOverTime)
 	mux.HandleFunc("/api/sessions", s.handleSessions)
+	mux.HandleFunc("/api/session-detail", s.handleSessionDetail)
 
 	log.Printf("server: listening on %s", s.addr)
 	return http.ListenAndServe(s.addr, mux)
@@ -118,6 +119,20 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	data, err := s.db.GetSessions(from, to)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, data)
+}
+
+func (s *Server) handleSessionDetail(w http.ResponseWriter, r *http.Request) {
+	sid := r.URL.Query().Get("session_id")
+	if sid == "" {
+		http.Error(w, "session_id required", 400)
+		return
+	}
+	data, err := s.db.GetSessionDetail(sid)
 	if err != nil {
 		serverError(w, err)
 		return

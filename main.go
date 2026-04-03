@@ -40,6 +40,17 @@ func main() {
 	}
 	defer db.Close()
 
+	// Check if version changed — if so, reset scan state to force full re-scan
+	// (needed when prompt counting logic or other parsing changes)
+	lastVer, _ := db.GetMeta("version")
+	if lastVer != "" && lastVer != version {
+		log.Printf("version changed (%s -> %s), resetting scan state for full re-scan", lastVer, version)
+		if err := db.ResetScanState(); err != nil {
+			log.Printf("reset scan state: %v", err)
+		}
+	}
+	db.SetMeta("version", version)
+
 	// Sync pricing
 	log.Println("syncing pricing data...")
 	if err := pricing.Sync(db); err != nil {

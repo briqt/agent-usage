@@ -59,6 +59,7 @@ type codexTokenUsage struct {
 
 type codexResponseItem struct {
 	Role string `json:"role"`
+	Type string `json:"type"`
 }
 
 // Scan walks all configured paths and processes new JSONL data from Codex CLI sessions.
@@ -155,7 +156,7 @@ func (c *CodexCollector) processFile(path string) error {
 			if err := json.Unmarshal(entry.Payload, &ri); err != nil {
 				continue
 			}
-			if ri.Role == "user" {
+			if ri.Role == "user" && ri.Type != "function_call_output" {
 				prompts++
 			}
 

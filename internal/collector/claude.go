@@ -43,6 +43,44 @@ type claudeUsage struct {
 	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
 }
 
+// isRealUserPrompt checks whether a type=user JSONL entry is an actual human prompt
+// (as opposed to a tool_result response, which Claude Code also stores as type=user).
+func isRealUserPrompt(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var msg struct {
+		Content json.RawMessage `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &msg); err != nil {
+		return false
+	}
+	if len(msg.Content) == 0 {
+		return false
+	}
+	// If content is a string, it's a real user prompt
+	if msg.Content[0] == '"' {
+		return true
+	}
+	// If content is an array, check for tool_result blocks
+	if msg.Content[0] == '[' {
+		var blocks []struct {
+			Type      string `json:"type"`
+			ToolUseID string `json:"tool_use_id"`
+		}
+		if err := json.Unmarshal(msg.Content, &blocks); err != nil {
+			return false
+		}
+		for _, b := range blocks {
+			if b.Type == "tool_result" || b.ToolUseID != "" {
+				return false
+			}
+		}
+		return len(blocks) > 0
+	}
+	return false
+}
+
 // Scan walks all configured paths and processes new JSONL data from Claude Code sessions.
 func (c *ClaudeCollector) Scan() error {
 	for _, basePath := range c.paths {

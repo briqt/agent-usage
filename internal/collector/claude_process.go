@@ -74,7 +74,9 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 
 		switch entry.Type {
 		case "user":
-			prompts++
+			if isRealUserPrompt(entry.Message) {
+				prompts++
+			}
 		case "assistant":
 			if entry.Message == nil {
 				continue
