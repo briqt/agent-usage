@@ -1,7 +1,7 @@
 # agent-usage
 
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()
 
 轻量级、跨平台的 AI 编程工具用量与费用追踪器。  
@@ -163,4 +163,4 @@ agent-usage
 
 ## 许可证
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
