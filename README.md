@@ -6,21 +6,21 @@
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://ghcr.io/briqt/agent-usage)
 
 Lightweight, cross-platform AI coding agent usage & cost tracker.  
-Single binary + SQLite — replaces a full Grafana LGTM observability stack.
+Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
 ## Why
 
-AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered local files and telemetry streams. Monitoring costs and token usage typically requires a complex observability stack (Grafana + Loki + Tempo + Prometheus + Alloy + MinIO + Redpanda = 7 containers).
+AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered local files and telemetry streams. Keeping track of costs and token usage across tools is tedious without a unified view.
 
-**agent-usage** replaces all of that with a single binary and one SQLite file.
+**agent-usage** gives you that view with a single binary and one SQLite file.
 
 ## Features
 
 - 📁 **Local file parsing** — reads Claude Code and Codex CLI session files directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
-- 🗄️ **SQLite storage** — single file, zero ops, data is correctable (unlike append-only log stores)
+- 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
 - 🔄 **Incremental scanning** — watches for new sessions, deduplicates automatically
 - 📦 **Single binary** — `go:embed` packs the web UI into the executable

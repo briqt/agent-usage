@@ -6,21 +6,21 @@
 [![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://ghcr.io/briqt/agent-usage)
 
 轻量级、跨平台的 AI 编程工具用量与费用追踪器。  
-单二进制 + SQLite —— 替代完整的 Grafana LGTM 可观测性栈。
+单二进制 + SQLite —— 零基础设施依赖。
 
 **[English](README.md)**
 
 ## 为什么做这个
 
-AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件和遥测流中。要监控费用和 token 用量，通常需要一套复杂的可观测性栈（Grafana + Loki + Tempo + Prometheus + Alloy + MinIO + Redpanda = 7 个容器）。
+AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件和遥测流中。要跨工具统一追踪费用和 token 用量并不容易。
 
-**agent-usage** 用一个二进制文件和一个 SQLite 文件替代了这一切。
+**agent-usage** 用一个二进制文件和一个 SQLite 文件解决了这个问题。
 
 ## 特性
 
 - 📁 **本地文件解析** —— 直接读取 Claude Code 和 Codex CLI 的会话文件
 - 💰 **自动费用计算** —— 从 [litellm](https://github.com/BerriAI/litellm) 获取模型价格，价格更新后自动回填历史记录
-- 🗄️ **SQLite 存储** —— 单文件、零运维、数据可修正（不像 append-only 的日志存储）
+- 🗄️ **SQLite 存储** —— 单文件、零运维、数据可修正
 - 📊 **Web 仪表板** —— 暗色主题 UI，ECharts 图表：费用分布、token 趋势、会话列表
 - 🔄 **增量扫描** —— 监听新会话，自动去重
 - 📦 **单二进制** —— `go:embed` 将 Web UI 打包进可执行文件
