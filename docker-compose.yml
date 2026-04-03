@@ -5,6 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - "9800:9800"
+    environment:
+      # Uncomment to use a proxy for pricing data sync (e.g. in China):
+      # - HTTP_PROXY=http://host.docker.internal:7890
+      # - HTTPS_PROXY=http://host.docker.internal:7890
+      # - NO_PROXY=localhost,127.0.0.1
+      - TZ=${TZ:-UTC}
     volumes:
       # Persistent database
       - agent-usage-data:/data
