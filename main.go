@@ -90,7 +90,8 @@ func main() {
 	}()
 
 	// Start web server
-	srv := server.New(db, cfg.Server.Port)
+	addr := fmt.Sprintf("%s:%d", cfg.Server.BindAddress, cfg.Server.Port)
+	srv := server.New(db, addr)
 	log.Fatal(srv.Start())
 }
 

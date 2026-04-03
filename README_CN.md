@@ -51,6 +51,7 @@ open http://localhost:9800
 ```yaml
 server:
   port: 9800
+  bind_address: "127.0.0.1"  # 远程访问请改为 "0.0.0.0"
 
 collectors:
   claude:
@@ -113,8 +114,8 @@ agent-usage
 │   ├── pricing/                # litellm 价格获取 + 计费公式
 │   ├── storage/
 │   │   ├── sqlite.go           # 数据库初始化 + 迁移
-│   │   ├── api.go              # 写入操作
-│   │   ├── queries.go          # 查询操作
+│   │   ├── api.go              # 查询类型 + 读取操作
+│   │   ├── queries.go          # 写入操作
 │   │   └── costs.go            # 费用重算 + 回填
 │   └── server/
 │       ├── server.go           # HTTP 服务 + REST API

@@ -2,8 +2,11 @@ package storage
 
 import "strings"
 
+// CostCalcFunc is a function that calculates USD cost from token counts and per-token prices.
 type CostCalcFunc func(inputTokens, outputTokens, cacheCreation, cacheRead int64, prices [4]float64) float64
 
+// RecalcCosts recalculates costs for all usage records where cost_usd is zero,
+// using fuzzy model name matching against the provided pricing map.
 func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()

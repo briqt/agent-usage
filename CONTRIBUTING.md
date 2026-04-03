@@ -90,6 +90,7 @@ We follow [Semantic Versioning](https://semver.org/):
 ## Code Style
 
 - `go fmt` and `go vet` must pass
+- `go test ./...` must pass
 - Keep dependencies minimal — prefer stdlib where reasonable
 - Pure Go only (no CGO) to ensure easy cross-compilation
 - Embed static assets via `go:embed`

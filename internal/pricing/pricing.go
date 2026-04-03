@@ -18,6 +18,8 @@ type modelPricing struct {
 	CacheCreationInputTokenCost    *float64 `json:"cache_creation_input_token_cost"`
 }
 
+// Sync fetches model pricing from the litellm GitHub repository and upserts
+// it into the database. Only models relevant to AI coding agents are stored.
 func Sync(db *storage.DB) error {
 	resp, err := http.Get(pricingURL)
 	if err != nil {
@@ -67,6 +69,8 @@ func Sync(db *storage.DB) error {
 	return nil
 }
 
+// CalcCost computes the USD cost for a single API call given token counts and
+// per-token prices. The prices array is [input, output, cache_read, cache_creation].
 func CalcCost(inputTokens, outputTokens, cacheCreation, cacheRead int64, prices [4]float64) float64 {
 	inputPrice := prices[0]
 	outputPrice := prices[1]

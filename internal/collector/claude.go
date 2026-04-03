@@ -9,11 +9,13 @@ import (
 	"github.com/briqt/agent-usage/internal/storage"
 )
 
+// ClaudeCollector scans Claude Code session JSONL files and extracts usage records.
 type ClaudeCollector struct {
 	db    *storage.DB
 	paths []string
 }
 
+// NewClaudeCollector creates a ClaudeCollector that scans the given base paths.
 func NewClaudeCollector(db *storage.DB, paths []string) *ClaudeCollector {
 	return &ClaudeCollector{db: db, paths: paths}
 }
@@ -41,6 +43,7 @@ type claudeUsage struct {
 	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
 }
 
+// Scan walks all configured paths and processes new JSONL data from Claude Code sessions.
 func (c *ClaudeCollector) Scan() error {
 	for _, basePath := range c.paths {
 		projects, err := os.ReadDir(basePath)

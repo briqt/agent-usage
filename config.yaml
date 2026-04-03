@@ -1,5 +1,6 @@
 server:
   port: 9800
+  bind_address: "127.0.0.1"
 collectors:
   claude:
     enabled: true

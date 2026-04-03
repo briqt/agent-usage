@@ -8,11 +8,13 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// DB wraps a SQLite database connection with a mutex for safe concurrent access.
 type DB struct {
 	db *sql.DB
 	mu sync.Mutex
 }
 
+// UsageRecord represents a single API call's token usage and cost.
 type UsageRecord struct {
 	ID                       int64
 	Source                   string // "claude" or "codex"
@@ -29,6 +31,7 @@ type UsageRecord struct {
 	GitBranch                string
 }
 
+// SessionRecord represents metadata for a coding agent session.
 type SessionRecord struct {
 	ID        int64
 	Source    string
@@ -41,6 +44,8 @@ type SessionRecord struct {
 	Prompts   int
 }
 
+// Open creates or opens a SQLite database at the given path, enables WAL mode,
+// and runs schema migrations.
 func Open(path string) (*DB, error) {
 	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)")
 	if err != nil {
@@ -53,6 +58,7 @@ func Open(path string) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
+// Close closes the underlying database connection.
 func (d *DB) Close() error { return d.db.Close() }
 
 func migrate(db *sql.DB) error {
@@ -75,6 +81,7 @@ func migrate(db *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_records(timestamp);
 		CREATE INDEX IF NOT EXISTS idx_usage_session ON usage_records(session_id);
 		CREATE INDEX IF NOT EXISTS idx_usage_source ON usage_records(source);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_dedup ON usage_records(session_id, model, timestamp, input_tokens, output_tokens);
 
 		CREATE TABLE IF NOT EXISTS sessions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -3,7 +3,6 @@ package server
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -15,15 +14,18 @@ import (
 //go:embed static
 var staticFS embed.FS
 
+// Server serves the web dashboard and REST API.
 type Server struct {
 	db   *storage.DB
-	port int
+	addr string
 }
 
-func New(db *storage.DB, port int) *Server {
-	return &Server{db: db, port: port}
+// New creates a Server that will listen on the given address (host:port).
+func New(db *storage.DB, addr string) *Server {
+	return &Server{db: db, addr: addr}
 }
 
+// Start registers HTTP handlers and begins listening. It blocks until the server stops.
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
@@ -36,9 +38,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/tokens-over-time", s.handleTokensOverTime)
 	mux.HandleFunc("/api/sessions", s.handleSessions)
 
-	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("server: listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+	log.Printf("server: listening on %s", s.addr)
+	return http.ListenAndServe(s.addr, mux)
 }
 
 func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time) {
