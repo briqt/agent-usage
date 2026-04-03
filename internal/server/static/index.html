@@ -24,7 +24,7 @@ select:hover,.ctrl-btn:hover,input[type=date]:hover{border-color:var(--accent)}
 .preset-btn:hover{border-color:var(--accent);color:var(--text)}
 .preset-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .custom-range{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
-.refresh-indicator{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+
 .controls-row{padding:12px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:24px 32px}
 .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:background .2s,border-color .2s}
@@ -95,7 +95,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
   <button class="ctrl-btn" id="btn-refresh" title="Refresh">&#x21bb;</button>
   <button class="ctrl-btn" id="btn-auto-refresh" title="Auto Refresh"></button>
   <select id="sel-refresh-interval"></select>
-  <span class="refresh-indicator" id="refresh-indicator"></span>
+
 </div>
 <div class="stats">
   <div class="stat-card"><div class="label" data-i18n="totalCost">Total Cost</div><div class="value cost" id="s-cost">$0.00</div></div>
