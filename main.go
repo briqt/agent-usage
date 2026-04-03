@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -24,7 +25,11 @@ func main() {
 		fmt.Printf("agent-usage %s (commit: %s, built: %s)\n", version, commit, date)
 		os.Exit(0)
 	}
-	cfg, err := config.Load("config.yaml")
+
+	configPath := flag.String("config", "", "path to config file")
+	flag.Parse()
+
+	cfg, err := config.Load(config.ResolveConfigPath(*configPath))
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}

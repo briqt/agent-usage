@@ -1,0 +1,18 @@
+services:
+  agent-usage:
+    image: ghcr.io/briqt/agent-usage:latest
+    container_name: agent-usage
+    restart: unless-stopped
+    ports:
+      - "9800:9800"
+    volumes:
+      # Persistent database
+      - agent-usage-data:/data
+      # Host session directories (read-only)
+      - ~/.claude/projects:/sessions/claude:ro
+      - ~/.codex/sessions:/sessions/codex:ro
+      # Optional: custom config override
+      # - ./config.yaml:/etc/agent-usage/config.yaml:ro
+
+volumes:
+  agent-usage-data:

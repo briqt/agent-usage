@@ -3,6 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://ghcr.io/briqt/agent-usage)
 
 Lightweight, cross-platform AI coding agent usage & cost tracker.  
 Single binary + SQLite — replaces a full Grafana LGTM observability stack.
@@ -26,6 +27,20 @@ AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered 
 - 🖥️ **Cross-platform** — Linux, macOS, Windows
 
 ## Quick Start
+
+### Docker (recommended)
+
+```bash
+# One command to start
+docker compose up -d
+
+# Open dashboard
+open http://localhost:9800
+```
+
+The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in a named volume.
+
+### Build from Source
 
 ```bash
 # Clone
@@ -152,6 +167,24 @@ When prices update, historical records are automatically backfilled.
 - **SQLite** via [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) — pure Go SQLite driver
 - **ECharts** — charting library
 - **`go:embed`** — single binary deployment
+
+## Docker
+
+Pre-built multi-arch images (amd64 + arm64) are published to `ghcr.io/briqt/agent-usage`.
+
+```bash
+docker run -d \
+  --name agent-usage \
+  -p 9800:9800 \
+  -v agent-usage-data:/data \
+  -v ~/.claude/projects:/sessions/claude:ro \
+  -v ~/.codex/sessions:/sessions/codex:ro \
+  ghcr.io/briqt/agent-usage:latest
+```
+
+Or use `docker compose up -d` with the included `docker-compose.yml`.
+
+Config search order: `--config` flag > `/etc/agent-usage/config.yaml` > `./config.yaml`.
 
 ## Roadmap
 
