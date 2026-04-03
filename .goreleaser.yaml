@@ -1,0 +1,70 @@
+project_name: agent-usage
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: .
+    binary: agent-usage
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - README_CN.md
+      - LICENSE
+      - config.yaml
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+  groups:
+    - title: "🚀 Features"
+      regexp: '^feat'
+    - title: "🐛 Bug Fixes"
+      regexp: '^fix'
+    - title: "⚡ Performance"
+      regexp: '^perf'
+    - title: "♻️ Refactor"
+      regexp: '^refactor'
+    - title: "Others"
+      order: 999
+
+release:
+  github:
+    owner: briqt
+    name: agent-usage
+  name_template: "v{{.Version}}"
+  header: |
+    ## agent-usage v{{.Version}}
+    
+    AI coding agent usage & cost tracker.
+  footer: |
+    **Full Changelog**: https://github.com/briqt/agent-usage/compare/{{ .PreviousTag }}...{{ .Tag }}

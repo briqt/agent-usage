@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/briqt/agent-usage/internal/collector"
@@ -11,7 +13,17 @@ import (
 	"github.com/briqt/agent-usage/internal/storage"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		fmt.Printf("agent-usage %s (commit: %s, built: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
 	cfg, err := config.Load("config.yaml")
 	if err != nil {
 		log.Fatalf("config: %v", err)
