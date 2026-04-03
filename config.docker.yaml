@@ -1,0 +1,19 @@
+server:
+  port: 9800
+  bind_address: "0.0.0.0"
+
+collectors:
+  claude:
+    enabled: true
+    paths: ["/sessions/claude"]
+    scan_interval: 60s
+  codex:
+    enabled: true
+    paths: ["/sessions/codex"]
+    scan_interval: 60s
+
+storage:
+  path: "/data/agent-usage.db"
+
+pricing:
+  sync_interval: 1h

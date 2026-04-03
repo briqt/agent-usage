@@ -3,6 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://ghcr.io/briqt/agent-usage)
 
 轻量级、跨平台的 AI 编程工具用量与费用追踪器。  
 单二进制 + SQLite —— 替代完整的 Grafana LGTM 可观测性栈。
@@ -26,6 +27,20 @@ AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件
 - 🖥️ **跨平台** —— Linux、macOS、Windows
 
 ## 快速开始
+
+### Docker（推荐）
+
+```bash
+# 一条命令启动
+docker compose up -d
+
+# 打开仪表板
+open http://localhost:9800
+```
+
+默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在命名卷中。
+
+### 从源码编译
 
 ```bash
 # 克隆
@@ -152,6 +167,24 @@ agent-usage
 - **SQLite** via [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) —— 纯 Go SQLite 驱动
 - **ECharts** —— 图表库
 - **`go:embed`** —— 单二进制部署
+
+## Docker
+
+预构建多架构镜像（amd64 + arm64）发布在 `ghcr.io/briqt/agent-usage`。
+
+```bash
+docker run -d \
+  --name agent-usage \
+  -p 9800:9800 \
+  -v agent-usage-data:/data \
+  -v ~/.claude/projects:/sessions/claude:ro \
+  -v ~/.codex/sessions:/sessions/codex:ro \
+  ghcr.io/briqt/agent-usage:latest
+```
+
+也可以使用 `docker compose up -d` 配合项目自带的 `docker-compose.yml`。
+
+配置文件搜索顺序：`--config` 参数 > `/etc/agent-usage/config.yaml` > `./config.yaml`。
 
 ## 路线图
 
