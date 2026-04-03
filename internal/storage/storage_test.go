@@ -259,7 +259,7 @@ func TestGetCostOverTime(t *testing.T) {
 
 	from := ts1.Add(-time.Hour)
 	to := ts2.Add(time.Hour)
-	result, err := db.GetCostOverTime(from, to)
+	result, err := db.GetCostOverTime(from, to, "1d")
 	if err != nil {
 		t.Fatalf("GetCostOverTime: %v", err)
 	}
