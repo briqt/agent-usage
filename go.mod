@@ -1,4 +1,4 @@
-module devobs
+module github.com/briqt/agent-usage
 
 go 1.25.0
 

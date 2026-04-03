@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"devobs/internal/storage"
+	"github.com/briqt/agent-usage/internal/storage"
 )
 
 //go:embed static

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"devobs/internal/storage"
+	"github.com/briqt/agent-usage/internal/storage"
 )
 
 type ClaudeCollector struct {

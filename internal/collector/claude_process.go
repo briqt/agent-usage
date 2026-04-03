@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"devobs/internal/storage"
+	"github.com/briqt/agent-usage/internal/storage"
 )
 
 func (c *ClaudeCollector) processFile(path, project string) error {

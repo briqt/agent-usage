@@ -4,11 +4,11 @@ import (
 	"log"
 	"time"
 
-	"devobs/internal/collector"
-	"devobs/internal/config"
-	"devobs/internal/pricing"
-	"devobs/internal/server"
-	"devobs/internal/storage"
+	"github.com/briqt/agent-usage/internal/collector"
+	"github.com/briqt/agent-usage/internal/config"
+	"github.com/briqt/agent-usage/internal/pricing"
+	"github.com/briqt/agent-usage/internal/server"
+	"github.com/briqt/agent-usage/internal/storage"
 )
 
 func main() {

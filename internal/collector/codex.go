@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"devobs/internal/storage"
+	"github.com/briqt/agent-usage/internal/storage"
 )
 
 type CodexCollector struct {
