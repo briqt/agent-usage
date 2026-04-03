@@ -10,6 +10,6 @@ collectors:
     paths: ["~/.codex/sessions"]
     scan_interval: 60s
 storage:
-  path: "./devobs.db"
+  path: "./agent-usage.db"
 pricing:
   sync_interval: 1h

@@ -1,5 +1,6 @@
-devobs
-devobs.db
-*.db-wal
+# agent-usage.db
 *.db-shm
+*.db-wal
+config.local.yaml
 agent-usage
+devobs
