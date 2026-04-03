@@ -1,0 +1,15 @@
+server:
+  port: 9800
+collectors:
+  claude:
+    enabled: true
+    paths: ["~/.claude/projects"]
+    scan_interval: 60s
+  codex:
+    enabled: true
+    paths: ["~/.codex/sessions"]
+    scan_interval: 60s
+storage:
+  path: "./devobs.db"
+pricing:
+  sync_interval: 1h
