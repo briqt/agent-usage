@@ -95,7 +95,8 @@ func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
-	data, err := s.db.GetCostOverTime(from, to)
+	granularity := r.URL.Query().Get("granularity")
+	data, err := s.db.GetCostOverTime(from, to, granularity)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -105,7 +106,8 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
-	data, err := s.db.GetTokensOverTime(from, to)
+	granularity := r.URL.Query().Get("granularity")
+	data, err := s.db.GetTokensOverTime(from, to, granularity)
 	if err != nil {
 		serverError(w, err)
 		return

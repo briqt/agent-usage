@@ -6,18 +6,28 @@
 <title>agent-usage — AI Coding Agent Usage</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
-:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--text:#e1e4ed;--muted:#8b8fa3;--accent:#6366f1;--green:#22c55e;--blue:#3b82f6;--orange:#f59e0b;--pink:#ec4899}
+:root,[data-theme="dark"]{--bg:#0f1117;--card:#1a1d27;--border:#2a2d3a;--text:#e1e4ed;--muted:#8b8fa3;--accent:#6366f1;--green:#22c55e;--blue:#3b82f6;--orange:#f59e0b;--pink:#ec4899;--select-bg:#1a1d27;--hover:#23263a;--chart-bg:transparent;--chart-text:#e1e4ed;--chart-muted:#8b8fa3;--chart-grid:#2a2d3a;--tooltip-bg:#1a1d27;--tooltip-border:#2a2d3a}
+[data-theme="light"]{--bg:#f5f6fa;--card:#fff;--border:#e2e4ea;--text:#1a1d27;--muted:#6b7280;--accent:#6366f1;--green:#16a34a;--blue:#2563eb;--orange:#d97706;--pink:#db2777;--select-bg:#fff;--hover:#f0f1f5;--chart-bg:transparent;--chart-text:#1a1d27;--chart-muted:#6b7280;--chart-grid:#e2e4ea;--tooltip-bg:#fff;--tooltip-border:#e2e4ea}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-.header{padding:20px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.header h1{font-size:20px;font-weight:600}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s}
+.header{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:20px;font-weight:600;white-space:nowrap}
 .header h1 span{color:var(--accent)}
-.controls{display:flex;gap:12px;align-items:center}
-.controls input[type=date]{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-size:13px}
-.controls button{background:var(--accent);color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:13px}
-.controls button:hover{opacity:0.9}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,.ctrl-btn,input[type=date]{background:var(--select-bg);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;transition:border-color .15s}
+select:hover,.ctrl-btn:hover,input[type=date]:hover{border-color:var(--accent)}
+.ctrl-btn{display:inline-flex;align-items:center;gap:4px}
+.ctrl-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.separator{width:1px;height:20px;background:var(--border);margin:0 4px}
+.preset-bar{display:flex;gap:4px;flex-wrap:wrap}
+.preset-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.preset-btn:hover{border-color:var(--accent);color:var(--text)}
+.preset-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.custom-range{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.refresh-indicator{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.controls-row{padding:12px 32px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:24px 32px}
-.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:background .2s,border-color .2s}
 .stat-card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
 .stat-card .value{font-size:28px;font-weight:700;margin-top:4px}
 .stat-card .value.cost{color:var(--green)}
@@ -25,11 +35,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .stat-card .value.sessions{color:var(--orange)}
 .stat-card .value.prompts{color:var(--pink)}
 .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 32px 24px}
-.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:background .2s,border-color .2s}
 .chart-card h3{font-size:14px;margin-bottom:12px;color:var(--muted)}
 .chart-container{height:300px}
 .sessions-section{padding:0 32px 32px}
-.sessions-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.sessions-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:background .2s,border-color .2s}
 .sessions-card h3{font-size:14px;margin-bottom:12px;color:var(--muted)}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:500}
@@ -38,32 +48,50 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .badge.claude{background:rgba(99,102,241,0.2);color:var(--accent)}
 .badge.codex{background:rgba(34,197,94,0.2);color:var(--green)}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.charts{grid-template-columns:1fr}.header,.controls-row,.stats,.sessions-section{padding-left:16px;padding-right:16px}}
+@media(max-width:500px){.stats{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
 <div class="header">
-  <h1><span>agent-usage</span> AI Usage Dashboard</h1>
-  <div class="controls">
-    <input type="date" id="from"> <span style="color:var(--muted)">to</span> <input type="date" id="to">
-    <button onclick="refresh()">Apply</button>
+  <h1><span>agent-usage</span> <span data-i18n="title">AI Usage Dashboard</span></h1>
+  <div class="toolbar">
+    <select id="sel-theme" title="Theme"></select>
+    <select id="sel-lang" title="Language"></select>
   </div>
 </div>
+<div class="controls-row">
+  <div class="preset-bar" id="preset-bar"></div>
+  <div class="custom-range">
+    <input type="date" id="from"> <span data-i18n="to">to</span> <input type="date" id="to">
+  </div>
+  <div class="separator"></div>
+  <select id="sel-granularity"></select>
+  <div class="separator"></div>
+  <button class="ctrl-btn" id="btn-refresh" title="Refresh">&#x21bb;</button>
+  <button class="ctrl-btn" id="btn-auto-refresh" title="Auto Refresh"></button>
+  <select id="sel-refresh-interval"></select>
+  <span class="refresh-indicator" id="refresh-indicator"></span>
+</div>
 <div class="stats">
-  <div class="stat-card"><div class="label">Total Cost</div><div class="value cost" id="s-cost">$0.00</div></div>
-  <div class="stat-card"><div class="label">Total Tokens</div><div class="value tokens" id="s-tokens">0</div></div>
-  <div class="stat-card"><div class="label">Sessions</div><div class="value sessions" id="s-sessions">0</div></div>
-  <div class="stat-card"><div class="label">Prompts</div><div class="value prompts" id="s-prompts">0</div></div>
+  <div class="stat-card"><div class="label" data-i18n="totalCost">Total Cost</div><div class="value cost" id="s-cost">$0.00</div></div>
+  <div class="stat-card"><div class="label" data-i18n="totalTokens">Total Tokens</div><div class="value tokens" id="s-tokens">0</div></div>
+  <div class="stat-card"><div class="label" data-i18n="sessions">Sessions</div><div class="value sessions" id="s-sessions">0</div></div>
+  <div class="stat-card"><div class="label" data-i18n="prompts">Prompts</div><div class="value prompts" id="s-prompts">0</div></div>
 </div>
 <div class="charts">
-  <div class="chart-card"><h3>Cost by Model</h3><div class="chart-container" id="chart-pie"></div></div>
-  <div class="chart-card"><h3>Cost Over Time</h3><div class="chart-container" id="chart-cost"></div></div>
-  <div class="chart-card"><h3>Token Usage Over Time</h3><div class="chart-container" id="chart-tokens"></div></div>
-  <div class="chart-card"><h3>Daily Sessions</h3><div class="chart-container" id="chart-sessions"></div></div>
+  <div class="chart-card"><h3 data-i18n="costByModel">Cost by Model</h3><div class="chart-container" id="chart-pie"></div></div>
+  <div class="chart-card"><h3 data-i18n="costOverTime">Cost Over Time</h3><div class="chart-container" id="chart-cost"></div></div>
+  <div class="chart-card"><h3 data-i18n="tokenUsage">Token Usage Over Time</h3><div class="chart-container" id="chart-tokens"></div></div>
+  <div class="chart-card"><h3 data-i18n="dailySessions">Daily Sessions</h3><div class="chart-container" id="chart-sessions"></div></div>
 </div>
 <div class="sessions-section">
   <div class="sessions-card">
-    <h3>Sessions</h3>
-    <table><thead><tr><th>Source</th><th>Project</th><th>Branch</th><th>Time</th><th>Prompts</th><th>Tokens</th><th>Cost</th></tr></thead>
+    <h3 data-i18n="sessions">Sessions</h3>
+    <table><thead><tr>
+      <th data-i18n="source">Source</th><th data-i18n="project">Project</th><th data-i18n="branch">Branch</th>
+      <th data-i18n="time">Time</th><th data-i18n="prompts">Prompts</th><th data-i18n="tokens">Tokens</th><th data-i18n="cost">Cost</th>
+    </tr></thead>
     <tbody id="session-table"></tbody></table>
   </div>
 </div>
