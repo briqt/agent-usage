@@ -43,6 +43,35 @@ type claudeUsage struct {
 	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
 }
 
+// hasToolResultBlock checks whether a JSON content field (string or array)
+// contains tool_result blocks, indicating it's a tool response rather than
+// a real user prompt. Shared by Claude and OpenClaw collectors.
+func hasToolResultBlock(content json.RawMessage) bool {
+	if len(content) == 0 {
+		return false
+	}
+	// If content is a string, it's a real user prompt
+	if content[0] == '"' {
+		return false
+	}
+	// If content is an array, check for tool_result blocks
+	if content[0] == '[' {
+		var blocks []struct {
+			Type      string `json:"type"`
+			ToolUseID string `json:"tool_use_id"`
+		}
+		if err := json.Unmarshal(content, &blocks); err != nil {
+			return false
+		}
+		for _, b := range blocks {
+			if b.Type == "tool_result" || b.ToolUseID != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // isRealUserPrompt checks whether a type=user JSONL entry is an actual human prompt
 // (as opposed to a tool_result response, which Claude Code also stores as type=user).
 func isRealUserPrompt(raw json.RawMessage) bool {
@@ -58,23 +87,17 @@ func isRealUserPrompt(raw json.RawMessage) bool {
 	if len(msg.Content) == 0 {
 		return false
 	}
-	// If content is a string, it's a real user prompt
+	if hasToolResultBlock(msg.Content) {
+		return false
+	}
+	// Must have actual content
 	if msg.Content[0] == '"' {
 		return true
 	}
-	// If content is an array, check for tool_result blocks
 	if msg.Content[0] == '[' {
-		var blocks []struct {
-			Type      string `json:"type"`
-			ToolUseID string `json:"tool_use_id"`
-		}
+		var blocks []json.RawMessage
 		if err := json.Unmarshal(msg.Content, &blocks); err != nil {
 			return false
-		}
-		for _, b := range blocks {
-			if b.Type == "tool_result" || b.ToolUseID != "" {
-				return false
-			}
 		}
 		return len(blocks) > 0
 	}

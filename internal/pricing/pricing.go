@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/briqt/agent-usage/internal/storage"
@@ -36,16 +35,6 @@ func Sync(db *storage.DB) error {
 
 	count := 0
 	for model, raw := range data {
-		// Only keep models we care about (claude, gpt, o1, o3, o4)
-		lower := strings.ToLower(model)
-		if !strings.Contains(lower, "claude") &&
-			!strings.Contains(lower, "gpt") &&
-			!strings.Contains(lower, "o1-") &&
-			!strings.Contains(lower, "o3-") &&
-			!strings.Contains(lower, "o4-") {
-			continue
-		}
-
 		var p modelPricing
 		if err := json.Unmarshal(raw, &p); err != nil {
 			continue

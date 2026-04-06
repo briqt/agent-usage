@@ -11,6 +11,10 @@ collectors:
     enabled: true
     paths: ["/sessions/codex"]
     scan_interval: 60s
+  openclaw:
+    enabled: true
+    paths: ["/sessions/openclaw"]
+    scan_interval: 60s
 
 storage:
   path: "/data/agent-usage.db"

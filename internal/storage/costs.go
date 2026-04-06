@@ -78,14 +78,13 @@ func matchPricing(model string, allPrices map[string][4]float64) ([4]float64, bo
 		return p, true
 	}
 	// Try with provider prefix
-	for _, prefix := range []string{"anthropic/", "openai/", ""} {
+	for _, prefix := range []string{"anthropic/", "openai/", "deepseek/", "gemini/", "google/", "mistral/", "cohere/", "azure_ai/"} {
 		if p, ok := allPrices[prefix+model]; ok {
 			return p, true
 		}
 	}
 
 	// Normalize: replace / with . and version dots with dashes for matching
-	// e.g. "anthropic/claude-sonnet-4.6" -> "anthropic.claude-sonnet-4-6"
 	norm := func(s string) string {
 		s = strings.ToLower(s)
 		s = strings.ReplaceAll(s, "/", ".")
@@ -102,9 +101,10 @@ func matchPricing(model string, allPrices map[string][4]float64) ([4]float64, bo
 		kNorm := norm(k)
 		for _, mn := range []string{modelNorm, modelNormDash} {
 			if strings.Contains(kNorm, mn) || strings.Contains(mn, kNorm) {
-				score := len(k)
+				// Shortest key wins — avoids matching reseller paths over original provider
+				score := 10000 - len(k)
 				if kNorm == mn {
-					score += 10000 // exact match bonus
+					score += 100000 // exact normalized match bonus
 				}
 				if score > bestScore {
 					bestKey = k

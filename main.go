@@ -60,40 +60,34 @@ func main() {
 	// Calculate costs for existing records
 	recalcCosts(db)
 
-	// Initial scan
-	if cfg.Collectors.Claude.Enabled {
-		cc := collector.NewClaudeCollector(db, cfg.Collectors.Claude.Paths)
-		log.Println("scanning Claude Code sessions...")
-		if err := cc.Scan(); err != nil {
-			log.Printf("claude scan: %v", err)
-		}
-		recalcCosts(db)
-
-		// Background scanner
-		go func() {
-			ticker := time.NewTicker(cfg.Collectors.Claude.ScanInterval)
-			for range ticker.C {
-				cc.Scan()
-				recalcCosts(db)
-			}
-		}()
+	// Collector loop
+	type collectorEntry struct {
+		name string
+		c    collector.Collector
+		cfg  config.CollectorConfig
 	}
-
-	if cfg.Collectors.Codex.Enabled {
-		cx := collector.NewCodexCollector(db, cfg.Collectors.Codex.Paths)
-		log.Println("scanning Codex sessions...")
-		if err := cx.Scan(); err != nil {
-			log.Printf("codex scan: %v", err)
+	collectors := []collectorEntry{
+		{"Claude Code", collector.NewClaudeCollector(db, cfg.Collectors.Claude.Paths), cfg.Collectors.Claude},
+		{"Codex", collector.NewCodexCollector(db, cfg.Collectors.Codex.Paths), cfg.Collectors.Codex},
+		{"OpenClaw", collector.NewOpenClawCollector(db, cfg.Collectors.OpenClaw.Paths), cfg.Collectors.OpenClaw},
+	}
+	for _, ce := range collectors {
+		if !ce.cfg.Enabled {
+			continue
+		}
+		log.Printf("scanning %s sessions...", ce.name)
+		if err := ce.c.Scan(); err != nil {
+			log.Printf("%s scan: %v", ce.name, err)
 		}
 		recalcCosts(db)
 
-		go func() {
-			ticker := time.NewTicker(cfg.Collectors.Codex.ScanInterval)
+		go func(ce collectorEntry) {
+			ticker := time.NewTicker(ce.cfg.ScanInterval)
 			for range ticker.C {
-				cx.Scan()
+				ce.c.Scan()
 				recalcCosts(db)
 			}
-		}()
+		}(ce)
 	}
 
 	// Periodic pricing sync

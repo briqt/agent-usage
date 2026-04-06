@@ -20,6 +20,7 @@ services:
       # Host session directories (read-only)
       - ~/.claude/projects:/sessions/claude:ro
       - ~/.codex/sessions:/sessions/codex:ro
+      - ~/.openclaw/agents:/sessions/openclaw:ro
       # Optional: custom config override
       # - ./config.yaml:/etc/agent-usage/config.yaml:ro
 

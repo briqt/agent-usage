@@ -18,7 +18,7 @@ AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered 
 
 ## Features
 
-- 📁 **Local file parsing** — reads Claude Code and Codex CLI session files directly
+- 📁 **Local file parsing** — reads Claude Code, Codex CLI, and OpenClaw session files directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
 - 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
@@ -36,7 +36,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` mounts `~/.claude/projects` and `~/.codex/sessions` read-only. Data persists in `./data/`.
+The default `docker-compose.yml` mounts `~/.claude/projects`, `~/.codex/sessions`, and `~/.openclaw/agents` read-only. Data persists in `./data/`.
 
 The container uses `config.docker.yaml` by default (binds to `0.0.0.0`, stores data in `/data/`). To override, mount your own config:
 
@@ -65,6 +65,11 @@ collectors:
     enabled: true
     paths:
       - "~/.codex/sessions"
+    scan_interval: 60s
+  openclaw:
+    enabled: true
+    paths:
+      - "~/.openclaw/agents"
     scan_interval: 60s
 
 storage:
@@ -103,6 +108,7 @@ open http://localhost:9800
 |--------|-----------------|--------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `~/.claude/projects/<project>/<session>.jsonl` | JSONL |
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<year>/<month>/<day>/<session>.jsonl` | JSONL |
+| [OpenClaw](https://github.com/anthropics/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 
 ### Adding New Sources
 
@@ -133,9 +139,12 @@ agent-usage
 ├── internal/
 │   ├── config/                 # YAML config loader
 │   ├── collector/
+│   │   ├── collector.go        # Collector interface
 │   │   ├── claude.go           # Claude Code session scanner
 │   │   ├── claude_process.go   # Claude Code JSONL parser
-│   │   └── codex.go            # Codex CLI JSONL parser
+│   │   ├── codex.go            # Codex CLI JSONL parser
+│   │   ├── openclaw.go         # OpenClaw session scanner
+│   │   └── openclaw_process.go # OpenClaw JSONL parser
 │   ├── pricing/                # litellm price fetcher + cost formula
 │   ├── storage/
 │   │   ├── sqlite.go           # DB init + migrations

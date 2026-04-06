@@ -18,7 +18,7 @@ AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件
 
 ## 特性
 
-- 📁 **本地文件解析** —— 直接读取 Claude Code 和 Codex CLI 的会话文件
+- 📁 **本地文件解析** —— 直接读取 Claude Code、Codex CLI 和 OpenClaw 的会话文件
 - 💰 **自动费用计算** —— 从 [litellm](https://github.com/BerriAI/litellm) 获取模型价格，价格更新后自动回填历史记录
 - 🗄️ **SQLite 存储** —— 单文件、零运维、数据可修正
 - 📊 **Web 仪表板** —— 暗色主题 UI，ECharts 图表：费用分布、token 趋势、会话列表
@@ -36,7 +36,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects` 和 `~/.codex/sessions`，数据持久化在 `./data/` 目录。
+默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects`、`~/.codex/sessions` 和 `~/.openclaw/agents`，数据持久化在 `./data/` 目录。
 
 容器默认使用 `config.docker.yaml`（绑定 `0.0.0.0`，数据存储在 `/data/`）。如需自定义配置，挂载你自己的配置文件：
 
@@ -65,6 +65,11 @@ collectors:
     enabled: true
     paths:
       - "~/.codex/sessions"
+    scan_interval: 60s
+  openclaw:
+    enabled: true
+    paths:
+      - "~/.openclaw/agents"
     scan_interval: 60s
 
 storage:
@@ -103,6 +108,7 @@ open http://localhost:9800
 |------|---------|------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `~/.claude/projects/<项目>/<会话>.jsonl` | JSONL |
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<年>/<月>/<日>/<会话>.jsonl` | JSONL |
+| [OpenClaw](https://github.com/anthropics/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 
 ### 添加新数据源
 
@@ -133,9 +139,12 @@ agent-usage
 ├── internal/
 │   ├── config/                 # YAML 配置加载
 │   ├── collector/
+│   │   ├── collector.go        # Collector 接口
 │   │   ├── claude.go           # Claude Code 会话扫描
 │   │   ├── claude_process.go   # Claude Code JSONL 解析
-│   │   └── codex.go            # Codex CLI JSONL 解析
+│   │   ├── codex.go            # Codex CLI JSONL 解析
+│   │   ├── openclaw.go         # OpenClaw 会话扫描
+│   │   └── openclaw_process.go # OpenClaw JSONL 解析
 │   ├── pricing/                # litellm 价格获取 + 计费公式
 │   ├── storage/
 │   │   ├── sqlite.go           # 数据库初始化 + 迁移
