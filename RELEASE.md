@@ -60,7 +60,7 @@ v0.2.0-rc.1       # 发布候选
 ```bash
 git add CHANGELOG.md
 git commit -m "chore: prepare release v0.1.0"
-git push origin master:main
+git push origin main
 ```
 
 ### Step 2: Create Tag

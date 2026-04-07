@@ -3,6 +3,7 @@ package server
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -43,16 +44,23 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.addr, mux)
 }
 
-func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time) {
+func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time, error) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
 
 	var fromTime, toTime time.Time
+	var err error
 	if from != "" {
-		fromTime, _ = time.Parse("2006-01-02", from)
+		fromTime, err = time.Parse("2006-01-02", from)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'from' date %q: expected YYYY-MM-DD", from)
+		}
 	}
 	if to != "" {
-		toTime, _ = time.Parse("2006-01-02", to)
+		toTime, err = time.Parse("2006-01-02", to)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'to' date %q: expected YYYY-MM-DD", to)
+		}
 		toTime = toTime.Add(24*time.Hour - time.Second)
 	}
 	if fromTime.IsZero() {
@@ -61,7 +69,10 @@ func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time) {
 	if toTime.IsZero() {
 		toTime = time.Now().Add(24 * time.Hour)
 	}
-	return fromTime, toTime
+	if fromTime.After(toTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("'from' date (%s) is after 'to' date (%s): swap them or correct the range", from, to)
+	}
+	return fromTime, toTime, nil
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
@@ -74,8 +85,18 @@ func serverError(w http.ResponseWriter, err error) {
 	http.Error(w, "internal server error", 500)
 }
 
+func badRequest(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+}
+
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	from, to := s.parseTimeRange(r)
+	from, to, err := s.parseTimeRange(r)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
 	source := r.URL.Query().Get("source")
 	stats, err := s.db.GetDashboardStats(from, to, source)
 	if err != nil {
@@ -86,7 +107,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
-	from, to := s.parseTimeRange(r)
+	from, to, err := s.parseTimeRange(r)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
 	source := r.URL.Query().Get("source")
 	data, err := s.db.GetCostByModel(from, to, source)
 	if err != nil {
@@ -97,7 +122,11 @@ func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
-	from, to := s.parseTimeRange(r)
+	from, to, err := s.parseTimeRange(r)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
 	data, err := s.db.GetCostOverTime(from, to, granularity, source)
@@ -109,7 +138,11 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
-	from, to := s.parseTimeRange(r)
+	from, to, err := s.parseTimeRange(r)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
 	data, err := s.db.GetTokensOverTime(from, to, granularity, source)
@@ -121,7 +154,11 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	from, to := s.parseTimeRange(r)
+	from, to, err := s.parseTimeRange(r)
+	if err != nil {
+		badRequest(w, err)
+		return
+	}
 	source := r.URL.Query().Get("source")
 	data, err := s.db.GetSessions(from, to, source)
 	if err != nil {

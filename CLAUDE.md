@@ -42,7 +42,7 @@ Single-binary Go application that collects AI coding agent token usage from loca
 - `internal/collector` — Source-specific JSONL parsers. Each collector implements `Scan()` which walks session directories and calls `processFile()` for incremental parsing. File offsets tracked in `file_state` table to avoid re-reading. `claude.go`/`claude_process.go` is the reference implementation for adding new sources.
 - `internal/storage` — SQLite layer. `sqlite.go` has schema + migrations, `queries.go` handles writes, `api.go` handles reads, `costs.go` does cost recalculation. All DB access serialized through a mutex (`DB.mu`).
 - `internal/pricing` — Fetches model prices from litellm's GitHub JSON. Cost formula: `(input - cache_read - cache_creation) × input_price + cache_creation × cache_creation_price + cache_read × cache_read_price + output × output_price`.
-- `internal/server` — HTTP server with REST API endpoints (`/api/stats`, `/api/cost-by-model`, etc.) and `go:embed` static files (HTML + ECharts dashboard).
+- `internal/server` — HTTP server with REST API endpoints (`/api/stats`, `/api/cost-by-model`, etc.) and `go:embed` static files (HTML + ECharts dashboard). All endpoints accept `from`, `to`, `source` (optional: `claude`/`codex`/`openclaw`), and time-series endpoints accept `granularity`. Invalid dates or reversed ranges return `400` with a JSON error message.
 - `internal/config` — YAML config loader. Search order: `--config` flag → `/etc/agent-usage/config.yaml` → `./config.yaml`. Supports `~` expansion in paths.
 
 ### Deduplication

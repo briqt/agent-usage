@@ -28,16 +28,17 @@ cp config.yaml config.local.yaml  # edit as needed
 ├── main.go                  # Entry point
 ├── internal/
 │   ├── config/              # YAML config loader
-│   ├── collector/           # Data source parsers (Claude Code, Codex)
+│   ├── collector/           # Data source parsers (Claude Code, Codex, OpenClaw)
 │   ├── pricing/             # litellm price sync + cost calculation
 │   ├── storage/             # SQLite schema, read/write, cost backfill
 │   └── server/              # HTTP server, REST API, embedded web UI
+├── skills/                  # npx skills for AI agent integration
 └── .github/workflows/       # CI/CD
 ```
 
 ## Adding a New Data Source
 
-1. Create `internal/collector/<source>.go`
+1. Create `internal/collector/<source>.go` (directory scanner) and `<source>_process.go` (JSONL parser)
 2. Implement a scanner that:
    - Walks the session directory for JSONL files
    - Parses entries and extracts per-API-call token usage
@@ -45,7 +46,7 @@ cp config.yaml config.local.yaml  # edit as needed
 3. Register the collector in `main.go`
 4. Add config fields in `internal/config/config.go`
 
-See `internal/collector/claude.go` as a reference.
+See `internal/collector/claude.go` + `claude_process.go` as the primary reference, or `openclaw.go` + `openclaw_process.go` as a second example.
 
 ## Commit Convention
 

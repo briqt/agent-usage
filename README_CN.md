@@ -108,7 +108,7 @@ open http://localhost:9800
 |------|---------|------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `~/.claude/projects/<项目>/<会话>.jsonl` | JSONL |
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<年>/<月>/<日>/<会话>.jsonl` | JSONL |
-| [OpenClaw](https://github.com/anthropics/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
+| [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 
 ### 添加新数据源
 
@@ -123,12 +123,14 @@ open http://localhost:9800
 
 Web 仪表板提供：
 
-- **汇总卡片** —— 总费用、总 token、会话数、提示数
-- **模型费用分布** —— 饼图
-- **费用趋势** —— 每日费用折线图
-- **Token 用量趋势** —— 输入/输出 token 趋势
-- **会话列表** —— 可排序表格，包含来源、项目、分支、费用详情
-- **日期范围筛选** —— 聚焦任意时间段
+- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw）、自动刷新
+- **汇总卡片** —— 总 Tokens、总费用、会话数、Prompt 数、API 调用数
+- **Token 用量** —— 堆叠柱状图（输入/输出/缓存读取/缓存写入）
+- **费用趋势** —— 按模型堆叠柱状图，颜色映射一致
+- **模型费用占比** —— 环形图，带百分比标签
+- **会话列表** —— 可排序、可筛选，展开查看模型明细
+- **深色/浅色主题** —— 跟随系统，支持手动切换
+- **国际化** —— 中英文
 
 ## 架构
 
@@ -172,13 +174,18 @@ agent-usage
 
 ## API 接口
 
+所有接口支持 `from` 和 `to`（YYYY-MM-DD）查询参数。可选：`source`（`claude`、`codex`、`openclaw`）按来源筛选，`granularity`（`1m`、`30m`、`1h`、`6h`、`12h`、`1d`、`1w`、`1M`）用于时序接口。
+
 | 接口 | 说明 |
 |------|------|
-| `GET /api/stats?from=&to=` | 汇总统计 |
-| `GET /api/cost-by-model?from=&to=` | 按模型分组的费用 |
-| `GET /api/cost-over-time?from=&to=` | 每日费用序列 |
-| `GET /api/tokens-over-time?from=&to=` | 每日 token 序列 |
-| `GET /api/sessions?from=&to=` | 会话列表 |
+| `GET /api/stats` | 汇总：总费用、总 token、会话数、Prompt 数、API 调用数 |
+| `GET /api/cost-by-model` | 按模型分组的费用 |
+| `GET /api/cost-over-time` | 费用时序（支持 `granularity`） |
+| `GET /api/tokens-over-time` | Token 用量时序（支持 `granularity`） |
+| `GET /api/sessions` | 会话列表及费用/token 汇总 |
+| `GET /api/session-detail?session_id=ID` | 单个会话的模型明细 |
+
+日期格式错误或日期范围倒置时返回 `400` JSON 错误，包含具体原因。
 
 ## 技术栈
 
@@ -211,6 +218,18 @@ docker build -t agent-usage:local .
 # 中国大陆用户，使用 GOPROXY 加速：
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
+
+## AI Agent Skill
+
+在任何 AI 编程工具的对话中直接查询用量数据，无需打开浏览器。
+
+```bash
+npx skills add briqt/agent-usage
+```
+
+安装后，直接问 agent "这个月花了多少钱"、"哪个模型最贵" 等问题。Skill 会自动检测 agent-usage 服务是否运行（API 模式），否则回退到直接解析本地 JSONL 文件（本地模式）。
+
+详见 [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md)。
 
 ## 路线图
 

@@ -87,6 +87,9 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 				if msg.Usage == nil {
 					continue
 				}
+				if msg.Model == "delivery-mirror" {
+					continue
+				}
 				rec := &storage.UsageRecord{
 					Source:                   "openclaw",
 					SessionID:                sessionID,

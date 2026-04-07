@@ -123,12 +123,14 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Summary cards** — total cost, tokens, sessions, prompts
-- **Cost by model** — pie chart breakdown
-- **Cost over time** — daily cost trend line
-- **Token usage over time** — input/output token trends
-- **Session list** — sortable table with source, project, branch, cost details
-- **Date range filter** — focus on any time period
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw), auto-refresh
+- **Summary cards** — total tokens, cost, sessions, prompts, API calls
+- **Token usage** — stacked bar chart (input/output/cache read/cache write)
+- **Cost trend** — stacked bar chart by model with consistent color mapping
+- **Cost by model** — doughnut chart with percentage labels
+- **Session list** — sortable, filterable table with expandable per-model detail
+- **Dark/Light theme** — system-aware with manual toggle
+- **i18n** — English and Chinese
 
 ## Architecture
 
@@ -172,13 +174,18 @@ When prices update, historical records are automatically backfilled.
 
 ## API Endpoints
 
+All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`) to filter by agent, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
+
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/stats?from=&to=` | Summary statistics |
-| `GET /api/cost-by-model?from=&to=` | Cost grouped by model |
-| `GET /api/cost-over-time?from=&to=` | Daily cost series |
-| `GET /api/tokens-over-time?from=&to=` | Daily token series |
-| `GET /api/sessions?from=&to=` | Session list |
+| `GET /api/stats` | Summary: total cost, tokens, sessions, prompts, API calls |
+| `GET /api/cost-by-model` | Cost grouped by model |
+| `GET /api/cost-over-time` | Cost time series (supports `granularity`) |
+| `GET /api/tokens-over-time` | Token usage time series (supports `granularity`) |
+| `GET /api/sessions` | Session list with cost/token totals |
+| `GET /api/session-detail?session_id=ID` | Per-model breakdown for a session |
+
+Invalid date formats or reversed date ranges return a `400` JSON error with a descriptive message.
 
 ## Tech Stack
 
@@ -211,6 +218,18 @@ docker build -t agent-usage:local .
 # For China mainland, use GOPROXY:
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
+
+## AI Agent Skill
+
+Query your usage data directly in any AI coding agent conversation — no browser needed.
+
+```bash
+npx skills add briqt/agent-usage
+```
+
+Once installed, ask your agent things like "how much did I spend this month?" or "which model costs the most?". The skill auto-detects whether the agent-usage server is running (API mode) or falls back to parsing local JSONL files directly (local mode).
+
+See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.
 
 ## Roadmap
 
