@@ -2,12 +2,21 @@ package storage
 
 import "time"
 
+// sourceFilter returns a SQL clause and args for optional source filtering.
+func sourceFilter(source string) (string, []interface{}) {
+	if source == "" {
+		return "", nil
+	}
+	return " AND source=?", []interface{}{source}
+}
+
 // DashboardStats holds aggregate statistics for the dashboard summary cards.
 type DashboardStats struct {
 	TotalCost     float64 `json:"total_cost"`
 	TotalTokens   int64   `json:"total_tokens"`
 	TotalSessions int     `json:"total_sessions"`
 	TotalPrompts  int     `json:"total_prompts"`
+	TotalCalls    int     `json:"total_calls"`
 }
 
 // CostByModel represents total cost for a single model.
@@ -47,23 +56,28 @@ type SessionInfo struct {
 
 // GetDashboardStats returns aggregate cost, token, session, and prompt counts
 // for usage records within the given time range.
-func (d *DB) GetDashboardStats(from, to time.Time) (*DashboardStats, error) {
+func (d *DB) GetDashboardStats(from, to time.Time, source string) (*DashboardStats, error) {
 	s := &DashboardStats{}
+	sf, sa := sourceFilter(source)
+	args := append([]interface{}{from, to}, sa...)
 	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0), COALESCE(SUM(input_tokens+output_tokens),0)
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`, from, to).Scan(&s.TotalCost, &s.TotalTokens)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCost, &s.TotalTokens)
 	if err != nil {
 		return nil, err
 	}
-	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`, from, to).Scan(&s.TotalSessions)
+	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalSessions)
 	d.db.QueryRow(`SELECT COALESCE(SUM(prompts),0) FROM sessions WHERE session_id IN
-		(SELECT DISTINCT session_id FROM usage_records WHERE timestamp BETWEEN ? AND ?)`, from, to).Scan(&s.TotalPrompts)
+		(SELECT DISTINCT session_id FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`)`, args...).Scan(&s.TotalPrompts)
+	d.db.QueryRow(`SELECT COUNT(*) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCalls)
 	return s, nil
 }
 
 // GetCostByModel returns total cost grouped by model within the given time range.
-func (d *DB) GetCostByModel(from, to time.Time) ([]CostByModel, error) {
+func (d *DB) GetCostByModel(from, to time.Time, source string) ([]CostByModel, error) {
+	sf, sa := sourceFilter(source)
+	args := append([]interface{}{from, to}, sa...)
 	rows, err := d.db.Query(`SELECT model, SUM(cost_usd) as cost FROM usage_records
-		WHERE timestamp BETWEEN ? AND ? GROUP BY model ORDER BY cost DESC`, from, to)
+		WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY model ORDER BY cost DESC`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +129,13 @@ func granularityExpr(g string) string {
 }
 
 // GetCostOverTime returns cost per model grouped by the given granularity within the time range.
-func (d *DB) GetCostOverTime(from, to time.Time, granularity string) ([]TimeSeriesPoint, error) {
+func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source string) ([]TimeSeriesPoint, error) {
 	expr := granularityExpr(granularity)
+	sf, sa := sourceFilter(source)
+	args := append([]interface{}{from, to}, sa...)
 	rows, err := d.db.Query(`SELECT `+expr+` as d, model, SUM(cost_usd) as cost
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?
-		GROUP BY d, model ORDER BY d`, from, to)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`
+		GROUP BY d, model ORDER BY d`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +155,15 @@ func (d *DB) GetCostOverTime(from, to time.Time, granularity string) ([]TimeSeri
 }
 
 // GetTokensOverTime returns token usage breakdown grouped by the given granularity within the time range.
-func (d *DB) GetTokensOverTime(from, to time.Time, granularity string) ([]TokenTimeSeriesPoint, error) {
+func (d *DB) GetTokensOverTime(from, to time.Time, granularity string, source string) ([]TokenTimeSeriesPoint, error) {
 	expr := granularityExpr(granularity)
+	sf, sa := sourceFilter(source)
+	args := append([]interface{}{from, to}, sa...)
 	rows, err := d.db.Query(`SELECT `+expr+` as d,
 		SUM(input_tokens) as inp, SUM(output_tokens) as outp,
 		SUM(cache_read_input_tokens) as cr, SUM(cache_creation_input_tokens) as cc
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?
-		GROUP BY d ORDER BY d`, from, to)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`
+		GROUP BY d ORDER BY d`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,16 +217,24 @@ func (d *DB) GetSessionDetail(sessionID string) ([]SessionDetail, error) {
 }
 
 // GetSessions returns sessions with aggregated cost and token totals within the given time range.
-func (d *DB) GetSessions(from, to time.Time) ([]SessionInfo, error) {
+func (d *DB) GetSessions(from, to time.Time, source string) ([]SessionInfo, error) {
+	sf, sa := sourceFilter(source)
+	args := append([]interface{}{from, to}, sa...)
+	// For sessions, also filter the sessions table by source if specified
+	sessionSF := ""
+	if source != "" {
+		sessionSF = " AND s.source=?"
+		args = append(args, source)
+	}
 	rows, err := d.db.Query(`SELECT s.session_id, s.source, s.project, s.cwd, s.git_branch,
 		COALESCE(s.start_time,''), s.prompts,
 		COALESCE(u.cost,0), COALESCE(u.tokens,0)
 		FROM sessions s
 		LEFT JOIN (SELECT session_id, SUM(cost_usd) as cost, SUM(input_tokens+output_tokens) as tokens
-			FROM usage_records WHERE timestamp BETWEEN ? AND ? GROUP BY session_id) u
+			FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) u
 		ON s.session_id = u.session_id
-		WHERE u.session_id IS NOT NULL
-		ORDER BY s.start_time DESC`, from, to)
+		WHERE u.session_id IS NOT NULL`+sessionSF+`
+		ORDER BY s.start_time DESC`, args...)
 	if err != nil {
 		return nil, err
 	}

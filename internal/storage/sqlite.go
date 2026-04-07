@@ -114,6 +114,8 @@ func migrate(db *sql.DB) error {
 			key TEXT PRIMARY KEY,
 			value TEXT DEFAULT ''
 		);
+
+		DELETE FROM usage_records WHERE model = '<synthetic>';
 	`)
 	return err
 }

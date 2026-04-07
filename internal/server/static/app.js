@@ -11,7 +11,7 @@ const fmtCost = n => n >= 1 ? '$' + n.toFixed(2) : '$' + n.toFixed(4);
 const I18N = {
   en: {
     title: 'Dashboard', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens',
-    sessions: 'Sessions', prompts: 'Prompts', costByModel: 'Cost Distribution', costOverTime: 'Cost Trend',
+    sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', costByModel: 'Cost Distribution', costOverTime: 'Cost Trend',
     tokenUsage: 'Token Usage Breakdown', dailySessions: 'Daily Sessions', source: 'Source', project: 'Project',
     branch: 'Branch', time: 'Time', tokens: 'Tokens', cost: 'Cost', refresh: 'Refresh',
     today: 'Today', thisWeek: 'This Week', thisMonth: 'This Month', thisYear: 'This Year',
@@ -19,13 +19,13 @@ const I18N = {
     light: 'Light', dark: 'Dark', system: 'System', autoOn: 'Auto On', autoOff: 'Auto Off',
     input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreate: 'Cache Create',
     gran_1m: '1 min', gran_30m: '30 min', gran_1h: '1 hour', gran_6h: '6 hours', gran_12h: '12 hours', gran_1d: '1 day', gran_1w: '1 week', gran_1M: '1 month',
-    model: 'Model', calls: 'Calls', allSources: 'All Sources', claudeCode: 'Claude Code', codex: 'Codex',
+    model: 'Model', calls: 'Calls', allSources: 'All Sources', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: 'Filter by project...', justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago',
     noSessions: 'No sessions found in this period.'
   },
   zh: {
     title: '分析仪表盘', to: '至', totalCost: '总耗费', totalTokens: '总 Tokens',
-    sessions: '会话数', prompts: '提示数', costByModel: '成本占比分布', costOverTime: '费用消耗趋势',
+    sessions: '会话数', prompts: '提示数', apiCalls: 'API 调用', costByModel: '成本占比分布', costOverTime: '费用消耗趋势',
     tokenUsage: 'Token 消耗明细', dailySessions: '每日会话数', source: '来源', project: '项目',
     branch: '分支', time: '时间', tokens: 'Tokens', cost: '耗费', refresh: '刷新数据',
     today: '今天', thisWeek: '本周', thisMonth: '本月', thisYear: '今年',
@@ -33,14 +33,14 @@ const I18N = {
     light: '浅色', dark: '深色', system: '跟随系统', autoOn: '自动刷新: 开', autoOff: '自动刷新: 关',
     input: '输入', output: '输出', cacheRead: '缓存命中', cacheCreate: '写入缓存',
     gran_1m: '1 分钟', gran_30m: '30 分钟', gran_1h: '1 小时', gran_6h: '6 小时', gran_12h: '12 小时', gran_1d: '1 天', gran_1w: '1 周', gran_1M: '1 个月',
-    model: '模型', calls: '调用次数', allSources: '全部来源', claudeCode: 'Claude Code', codex: 'Codex',
+    model: '模型', calls: '调用次数', allSources: '全部来源', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: '按项目筛选...', justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前',
     noSessions: '当前时间段内暂无会话数据。'
   }
 };
 
 // ── State ──
-const colors = ['#6366f1', '#3b82f6', '#34d399', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6', '#f43f5e'];
+const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
 const PRESETS = ['today', 'thisWeek', 'thisMonth', 'thisYear', 'last3d', 'last7d', 'last30d', 'custom'];
 const GRANULARITIES = ['1m', '30m', '1h', '6h', '12h', '1d', '1w', '1M'];
 const REFRESH_INTERVALS = [30, 60, 300, 1800, 3600];
@@ -54,6 +54,7 @@ let state = {
   refreshInterval: parseInt(localStorage.getItem('au-refreshInterval')) || 300,
   customFrom: localStorage.getItem('au-customFrom') || '',
   customTo: localStorage.getItem('au-customTo') || '',
+  source: localStorage.getItem('au-source') || '',
 };
 
 let autoTimer = null;
@@ -116,6 +117,7 @@ async function api(path) {
   const r = getTimeRange();
   let q = [`from=${r.from}`, `to=${r.to}`];
   if (state.granularity) q.push(`granularity=${state.granularity}`);
+  if (state.source) q.push(`source=${state.source}`);
   const res = await fetch(`/api/${path}?${q.join('&')}`);
   return res.json();
 }
@@ -143,26 +145,57 @@ async function refresh() {
     $('s-tokens').textContent = fmt(stats.total_tokens || 0);
     $('s-sessions').textContent = stats.total_sessions || 0;
     $('s-prompts').textContent = stats.total_prompts || 0;
+    $('s-calls').textContent = fmt(stats.total_calls || 0);
 
     const tc = getThemeColors();
 
+    // Empty state helper
+    const emptyGraphic = (text) => ({
+      type: 'text', left: 'center', top: 'center',
+      style: { text, fill: tc.muted, fontSize: 14, fontFamily: 'inherit' }
+    });
+
+    // Build global model→color mapping from costModel (sorted by cost DESC)
+    // This ensures the same model always gets the same color across all charts
+    const modelColorMap = {};
+    (costModel || []).forEach((d, i) => { modelColorMap[d.model] = colors[i % colors.length]; });
+
     // Pie -> Doughnut
-    const pieData = (costModel || []).filter(d => d.cost > 0).map(d => ({ name: d.model, value: +d.cost.toFixed(4) }));
+    const pieData = (costModel || []).filter(d => d.cost > 0).map(d => ({
+      name: d.model, value: +d.cost.toFixed(4),
+      itemStyle: { color: modelColorMap[d.model] }
+    }));
+    // Compute total for percentage in legend
+    const pieTotal = pieData.reduce((s, d) => s + d.value, 0);
     charts.pie.setOption({
       ...baseOpt(),
+      graphic: pieData.length === 0 ? emptyGraphic(t('noSessions')) : { type: 'text', style: { text: '' } },
       tooltip: { trigger: 'item', formatter: p => `<div style="font-weight:600;margin-bottom:4px;">${esc(p.name)}</div>${fmtCost(p.value)} (${p.percent}%)`, ...baseOpt().tooltip },
-      legend: { bottom: 0, textStyle: { color: tc.muted }, type: 'scroll' },
+      legend: {
+        type: 'scroll', top: 0, left: 'center',
+        textStyle: { color: tc.muted, fontSize: 11 },
+        itemGap: 12, itemWidth: 10, itemHeight: 10,
+        pageTextStyle: { color: tc.muted }, pageIconColor: tc.muted,
+        formatter: name => name.length > 30 ? name.slice(0, 27) + '...' : name,
+        tooltip: { show: true }
+      },
       series: [{
-        type: 'pie', radius: ['45%', '70%'], center: ['50%', '45%'],
+        type: 'pie', radius: ['35%', '65%'], center: ['50%', '55%'],
         itemStyle: { borderRadius: 6, borderColor: tc.bg, borderWidth: 2 },
-        label: { show: false }, data: pieData
-      }], color: colors
+        label: {
+          show: true, position: 'outside',
+          formatter: p => p.percent >= 5 ? `${p.percent}%` : '',
+          color: tc.muted, fontSize: 11
+        },
+        labelLine: { show: true, length: 8, length2: 6 },
+        labelLayout: { hideOverlap: true },
+        data: pieData
+      }]
     }, true);
 
     // Common Zoom Options
     const dataZoomOpts = [
-      { type: 'inside', start: 0, end: 100 },
-      { type: 'slider', height: 24, bottom: 0, borderColor: 'transparent', fillerColor: 'rgba(99,102,241,0.1)', handleStyle: { color: '#6366f1' } }
+      { type: 'inside', start: 0, end: 100 }
     ];
 
     // Cost Trend
@@ -170,40 +203,56 @@ async function refresh() {
     const costModels = [...new Set((costTime || []).map(d => d.model))];
     const costSeries = costModels.map(m => {
       const map = Object.fromEntries((costTime || []).filter(d => d.model === m).map(d => [d.date, d.value]));
-      // [重构]: 移除 stack 和 areaStyle，加粗线条，避免堆叠导致的趋势失真
       return {
         name: m,
-        type: 'line',
-        smooth: 0.3,
-        symbolSize: 6,
-        showSymbol: false, // 只有 hover 时显示圆点
-        lineStyle: { width: 3 },
+        type: 'bar', stack: 'cost',
+        barMaxWidth: 40,
+        color: modelColorMap[m],
+        emphasis: { focus: 'series' },
         data: costDates.map(d => +(map[d] || 0).toFixed(4))
       };
     });
     charts.cost.setOption({
-      ...baseOpt(), grid: { ...baseOpt().grid, bottom: 60 }, dataZoom: dataZoomOpts,
-      tooltip: { ...baseOpt().tooltip, axisPointer: { type: 'cross' }, valueFormatter: v => fmtCost(v) },
-      legend: { textStyle: { color: tc.muted }, top: 0, type: 'scroll' }, // 增加图例
+      ...baseOpt(), grid: { ...baseOpt().grid, top: 50 }, dataZoom: dataZoomOpts,
+      graphic: costDates.length === 0 ? emptyGraphic(t('noSessions')) : { type: 'text', style: { text: '' } },
+      tooltip: {
+        ...baseOpt().tooltip, trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        valueFormatter: v => fmtCost(v)
+      },
+      legend: {
+        type: 'scroll', top: 0, left: 'center',
+        textStyle: { color: tc.muted, fontSize: 11 },
+        itemGap: 12, itemWidth: 10, itemHeight: 10,
+        pageTextStyle: { color: tc.muted }, pageIconColor: tc.muted,
+        formatter: name => name.length > 30 ? name.slice(0, 27) + '...' : name,
+        tooltip: { show: true }
+      },
       xAxis: { type: 'category', data: costDates, axisLine: { lineStyle: { color: tc.grid } }, axisLabel: { color: tc.muted } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: tc.grid } }, axisLabel: { color: tc.muted, formatter: v => '$' + v } },
-      series: costSeries, color: colors
+      series: costSeries
     }, true);
 
     // Token Breakdown (Bar)
     const tokenDates = (tokensTime || []).map(d => d.date);
     charts.tokens.setOption({
-      ...baseOpt(), grid: { ...baseOpt().grid, bottom: 60 }, dataZoom: dataZoomOpts,
+      ...baseOpt(), grid: { ...baseOpt().grid, top: 50 }, dataZoom: dataZoomOpts,
+      graphic: tokenDates.length === 0 ? emptyGraphic(t('noSessions')) : { type: 'text', style: { text: '' } },
       tooltip: { ...baseOpt().tooltip, axisPointer: { type: 'shadow' } },
-      legend: { textStyle: { color: tc.muted }, top: 0 },
+      legend: {
+        type: 'scroll', top: 0, left: 'center',
+        textStyle: { color: tc.muted, fontSize: 11 },
+        itemGap: 12, itemWidth: 10, itemHeight: 10,
+        pageTextStyle: { color: tc.muted }, pageIconColor: tc.muted
+      },
       xAxis: { type: 'category', data: tokenDates, axisLine: { lineStyle: { color: tc.grid } }, axisLabel: { color: tc.muted } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: tc.grid } }, axisLabel: { color: tc.muted, formatter: v => fmt(v) } },
       series: [
         // [重构]: 将折线图全部改为同轴堆叠柱状图，直观展示 Token 总吞吐量与占比，彻底消除量级碾压遮挡
-        { name: t('input'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.input_tokens), color: '#3b82f6', barMaxWidth: 40 },
-        { name: t('output'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.output_tokens), color: '#34d399' },
-        { name: t('cacheRead'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_read), color: '#8b5cf6' },
-        { name: t('cacheCreate'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_create), color: '#f59e0b' }
+        { name: t('input'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.input_tokens), color: '#5470c6', barMaxWidth: 40 },
+        { name: t('output'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.output_tokens), color: '#91cc75' },
+        { name: t('cacheRead'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_read), color: '#73c0de' },
+        { name: t('cacheCreate'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_create), color: '#fac858' }
       ]
     }, true);
 
@@ -232,11 +281,9 @@ function relTime(ts) {
 
 // ── Session Table Logic ──
 function renderSessionTable() {
-  const srcFilter = $('filter-source').value;
   const projFilter = ($('filter-project').value || '').toLowerCase();
 
   const filtered = allSessions.filter(s => {
-    if (srcFilter && s.source !== srcFilter) return false;
     if (projFilter && !(s.project || s.cwd || '').toLowerCase().includes(projFilter)) return false;
     return true;
   });
@@ -398,6 +445,9 @@ function buildControls() {
   $('sel-granularity').innerHTML = buildOpts(GRANULARITIES, state.granularity, v => t('gran_' + v));
   $('sel-refresh-interval').innerHTML = buildOpts(REFRESH_INTERVALS, state.refreshInterval, v => v >= 60 ? (v / 60) + ' min' : v + ' sec');
 
+  const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['openclaw', 'openClaw']];
+  $('filter-source').innerHTML = SOURCES.map(([v, k]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${t(k)}</option>`).join('');
+
   const bar = $('preset-bar');
   bar.innerHTML = PRESETS.map(p => `<button class="preset-btn ${state.preset === p ? 'active' : ''}" data-preset="${p}">${t(p)}</button>`).join('');
 
@@ -426,7 +476,7 @@ $('to').onchange = e => { persist('customTo', e.target.value); refresh(); };
 $('btn-refresh').onclick = () => { refresh(); applyAutoRefresh(); };
 $('btn-auto-refresh').onclick = () => { persist('autoRefresh', !state.autoRefresh); applyAutoRefresh(); };
 
-$('filter-source').onchange = () => { sessionPage = 1; renderSessionTable(); };
+$('filter-source').onchange = e => { persist('source', e.target.value); refresh(); };
 $('filter-project').oninput = () => { sessionPage = 1; renderSessionTable(); };
 
 document.querySelectorAll('.sortable').forEach(th => {
