@@ -76,7 +76,8 @@ func serverError(w http.ResponseWriter, err error) {
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
-	stats, err := s.db.GetDashboardStats(from, to)
+	source := r.URL.Query().Get("source")
+	stats, err := s.db.GetDashboardStats(from, to, source)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -86,7 +87,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
-	data, err := s.db.GetCostByModel(from, to)
+	source := r.URL.Query().Get("source")
+	data, err := s.db.GetCostByModel(from, to, source)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -97,7 +99,8 @@ func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	granularity := r.URL.Query().Get("granularity")
-	data, err := s.db.GetCostOverTime(from, to, granularity)
+	source := r.URL.Query().Get("source")
+	data, err := s.db.GetCostOverTime(from, to, granularity, source)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -108,7 +111,8 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
 	granularity := r.URL.Query().Get("granularity")
-	data, err := s.db.GetTokensOverTime(from, to, granularity)
+	source := r.URL.Query().Get("source")
+	data, err := s.db.GetTokensOverTime(from, to, granularity, source)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -118,7 +122,8 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	from, to := s.parseTimeRange(r)
-	data, err := s.db.GetSessions(from, to)
+	source := r.URL.Query().Get("source")
+	data, err := s.db.GetSessions(from, to, source)
 	if err != nil {
 		serverError(w, err)
 		return

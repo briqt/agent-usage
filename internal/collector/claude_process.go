@@ -88,6 +88,9 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 			if msg.Usage == nil || msg.Usage.CacheCreationInputTokens == nil {
 				continue // streaming chunk, skip
 			}
+			if msg.Model == "<synthetic>" {
+				continue
+			}
 			rec := &storage.UsageRecord{
 				Source:    "claude",
 				SessionID: sessionID,
