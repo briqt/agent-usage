@@ -10,28 +10,30 @@ const fmtCost = n => n >= 1 ? '$' + n.toFixed(2) : '$' + n.toFixed(4);
 // ── i18n ──
 const I18N = {
   en: {
-    title: 'Dashboard', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens',
-    sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', costByModel: 'Cost Distribution', costOverTime: 'Cost Trend',
-    tokenUsage: 'Token Usage Breakdown', dailySessions: 'Daily Sessions', source: 'Source', project: 'Project',
+    title: 'Usage Analytics', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens',
+    sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', costByModel: 'Cost by Model', costOverTime: 'Cost Trend',
+    tokenUsage: 'Token Usage', dailySessions: 'Daily Sessions', source: 'Source', project: 'Project',
     branch: 'Branch', time: 'Time', tokens: 'Tokens', cost: 'Cost', refresh: 'Refresh',
+    sessionLog: 'Session Log',
     today: 'Today', thisWeek: 'This Week', thisMonth: 'This Month', thisYear: 'This Year',
     last3d: 'Last 3 Days', last7d: 'Last 7 Days', last30d: 'Last 30 Days', custom: 'Custom',
-    light: 'Light', dark: 'Dark', system: 'System', autoOn: 'Auto On', autoOff: 'Auto Off',
-    input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreate: 'Cache Create',
+    light: 'Light', dark: 'Dark', system: 'System', autoOn: 'Auto ✓', autoOff: 'Auto',
+    input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreate: 'Cache Write',
     gran_1m: '1 min', gran_30m: '30 min', gran_1h: '1 hour', gran_6h: '6 hours', gran_12h: '12 hours', gran_1d: '1 day', gran_1w: '1 week', gran_1M: '1 month',
     model: 'Model', calls: 'Calls', allSources: 'All Sources', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: 'Filter by project...', justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago',
     noSessions: 'No sessions found in this period.'
   },
   zh: {
-    title: '分析仪表盘', to: '至', totalCost: '总耗费', totalTokens: '总 Tokens',
-    sessions: '会话数', prompts: '提示数', apiCalls: 'API 调用', costByModel: '成本占比分布', costOverTime: '费用消耗趋势',
-    tokenUsage: 'Token 消耗明细', dailySessions: '每日会话数', source: '来源', project: '项目',
-    branch: '分支', time: '时间', tokens: 'Tokens', cost: '耗费', refresh: '刷新数据',
+    title: '使用分析', to: '至', totalCost: '总费用', totalTokens: '总 Tokens',
+    sessions: '会话数', prompts: 'Prompt 数', apiCalls: 'API 调用数', costByModel: '模型费用占比', costOverTime: '费用趋势',
+    tokenUsage: 'Token 用量', dailySessions: '每日会话数', source: '来源', project: '项目',
+    branch: '分支', time: '时间', tokens: 'Tokens', cost: '费用', refresh: '刷新',
+    sessionLog: '会话记录',
     today: '今天', thisWeek: '本周', thisMonth: '本月', thisYear: '今年',
     last3d: '近3天', last7d: '近7天', last30d: '近30天', custom: '自定义',
-    light: '浅色', dark: '深色', system: '跟随系统', autoOn: '自动刷新: 开', autoOff: '自动刷新: 关',
-    input: '输入', output: '输出', cacheRead: '缓存命中', cacheCreate: '写入缓存',
+    light: '浅色', dark: '深色', system: '跟随系统', autoOn: '自动 ✓', autoOff: '自动',
+    input: '输入', output: '输出', cacheRead: '缓存读取', cacheCreate: '缓存写入',
     gran_1m: '1 分钟', gran_30m: '30 分钟', gran_1h: '1 小时', gran_6h: '6 小时', gran_12h: '12 小时', gran_1d: '1 天', gran_1w: '1 周', gran_1M: '1 个月',
     model: '模型', calls: '调用次数', allSources: '全部来源', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: '按项目筛选...', justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前',
@@ -40,7 +42,7 @@ const I18N = {
 };
 
 // ── State ──
-const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'];
+const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
 const PRESETS = ['today', 'thisWeek', 'thisMonth', 'thisYear', 'last3d', 'last7d', 'last30d', 'custom'];
 const GRANULARITIES = ['1m', '30m', '1h', '6h', '12h', '1d', '1w', '1M'];
 const REFRESH_INTERVALS = [30, 60, 300, 1800, 3600];
@@ -249,10 +251,10 @@ async function refresh() {
       yAxis: { type: 'value', splitLine: { lineStyle: { color: tc.grid } }, axisLabel: { color: tc.muted, formatter: v => fmt(v) } },
       series: [
         // [重构]: 将折线图全部改为同轴堆叠柱状图，直观展示 Token 总吞吐量与占比，彻底消除量级碾压遮挡
-        { name: t('input'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.input_tokens), color: '#5470c6', barMaxWidth: 40 },
-        { name: t('output'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.output_tokens), color: '#91cc75' },
-        { name: t('cacheRead'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_read), color: '#73c0de' },
-        { name: t('cacheCreate'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_create), color: '#fac858' }
+        { name: t('input'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.input_tokens), color: '#3b82f6', barMaxWidth: 40 },
+        { name: t('output'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.output_tokens), color: '#22c55e' },
+        { name: t('cacheRead'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_read), color: '#8b5cf6' },
+        { name: t('cacheCreate'), type: 'bar', stack: 'Tokens', data: (tokensTime || []).map(d => d.cache_create), color: '#f59e0b' }
       ]
     }, true);
 
@@ -456,6 +458,7 @@ function buildControls() {
     $('from').value = state.customFrom || new Date().toISOString().slice(0, 10);
     $('to').value = state.customTo || new Date().toISOString().slice(0, 10);
   }
+  $('filter-project').placeholder = t('filterProject');
 }
 
 // ── Events Binding ──

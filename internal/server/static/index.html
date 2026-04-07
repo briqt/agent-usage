@@ -4,25 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>agent-usage — AI Coding Agent Usage</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
 /* ── Modern CSS Variables & Theme ── */
 :root, [data-theme="dark"] {
-  --bg: #0f1117; --bg-rgb: 15, 17, 23; --card: #181a20; --border: #2a2d37; --text: #eceef4; --muted: #8b8fa3;
-  --accent: #3b82f6; --accent-hover: #2563eb; --accent-bg: rgba(59, 130, 246, 0.1);
-  --green: #4ade80; --blue: #60a5fa; --orange: #fb923c; --pink: #f472b6;
-  --select-bg: #1e2028; --hover: #1e2028; --shadow: 0 2px 8px rgba(0,0,0,0.3);
-  --chart-bg: transparent; --chart-text: #eceef4; --chart-muted: #8b8fa3; --chart-grid: #2a2d37;
-  --tooltip-bg: rgba(24, 26, 32, 0.95); --tooltip-border: #363944;
+  --bg: #020617; --bg-rgb: 2, 6, 23; --card: #0e1223; --border: #1e293b; --text: #f1f5f9; --muted: #94a3b8;
+  --accent: #3b82f6; --accent-hover: #2563eb; --accent-bg: rgba(59, 130, 246, 0.12);
+  --green: #22c55e; --blue: #3b82f6; --orange: #f59e0b; --pink: #f472b6;
+  --select-bg: #0f172a; --hover: #1a2332; --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  --chart-bg: transparent; --chart-text: #f1f5f9; --chart-muted: #94a3b8; --chart-grid: #1e293b;
+  --tooltip-bg: rgba(14, 18, 35, 0.95); --tooltip-border: #334155;
 }
 [data-theme="light"] {
-  --bg: #f4f5f7; --bg-rgb: 244, 245, 247; --card: #ffffff; --border: #e2e4e9; --text: #1a1d26; --muted: #6b7084;
+  --bg: #f8fafc; --bg-rgb: 248, 250, 252; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --muted: #64748b;
   --accent: #2563eb; --accent-hover: #1d4ed8; --accent-bg: rgba(37, 99, 235, 0.06);
-  --green: #16a34a; --blue: #2563eb; --orange: #ea580c; --pink: #db2777;
-  --select-bg: #ffffff; --hover: #f8f9fb; --shadow: 0 2px 8px rgba(0,0,0,0.05);
-  --chart-bg: transparent; --chart-text: #1a1d26; --chart-muted: #6b7084; --chart-grid: #e2e4e9;
-  --tooltip-bg: rgba(255, 255, 255, 0.95); --tooltip-border: #e2e4e9;
+  --green: #16a34a; --blue: #2563eb; --orange: #d97706; --pink: #db2777;
+  --select-bg: #ffffff; --hover: #f1f5f9; --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --chart-bg: transparent; --chart-text: #0f172a; --chart-muted: #64748b; --chart-grid: #e2e8f0;
+  --tooltip-bg: rgba(255, 255, 255, 0.95); --tooltip-border: #e2e8f0;
 }
 
 /* ── Base & Typography ── */
@@ -97,7 +97,7 @@ select:focus, input[type=date]:focus, input[type=text]:focus { border-color: var
 .stat-card:nth-child(4) { --c: var(--pink); }
 .stat-card:nth-child(5) { --c: var(--accent); }
 .stat-card .label { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-.stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; font-feature-settings: "tnum"; font-family: 'IBM Plex Mono', 'SF Mono', monospace; }
+.stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; font-feature-settings: "tnum"; font-family: 'Fira Code', 'SF Mono', monospace; }
 .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
 
@@ -137,11 +137,11 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 /* Badges */
 .badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge.claude { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
-[data-theme="light"] .badge.claude { color: #2563eb; }
-.badge.codex { background: rgba(74,222,128,0.1); color: #4ade80; border: 1px solid rgba(74,222,128,0.2); }
-[data-theme="light"] .badge.codex { color: #16a34a; }
-.badge.openclaw { background: rgba(251,146,60,0.1); color: #fb923c; border: 1px solid rgba(251,146,60,0.2); }
-[data-theme="light"] .badge.openclaw { color: #ea580c; }
+[data-theme="light"] .badge.claude { color: #2563eb; background: rgba(37,99,235,0.08); border-color: rgba(37,99,235,0.2); }
+.badge.codex { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+[data-theme="light"] .badge.codex { color: #16a34a; background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.2); }
+.badge.openclaw { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+[data-theme="light"] .badge.openclaw { color: #d97706; background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.2); }
 
 /* Sorting */
 .sortable { cursor: pointer; user-select: none; transition: color 0.2s; }
@@ -261,7 +261,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 
   <div class="sessions-card">
     <div class="sessions-header">
-      <h3 data-i18n="sessions">Session Log</h3>
+      <h3 data-i18n="sessionLog">Session Log</h3>
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
         <input type="text" id="filter-project" class="filter-input" placeholder="Filter by project...">
       </div>
