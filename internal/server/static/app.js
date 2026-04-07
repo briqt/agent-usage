@@ -7,6 +7,31 @@ const $ = id => document.getElementById(id);
 const fmt = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
 const fmtCost = n => n >= 1 ? '$' + n.toFixed(2) : '$' + n.toFixed(4);
 
+// ── Timezone helpers ──
+// Format a Date as YYYY-MM-DD in local timezone (avoids toISOString which returns UTC)
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Convert UTC date label from API to local time label.
+// Sub-day formats ("2026-04-07 09:51", "2026-04-07 09") are shifted to local tz.
+// Day/week/month formats ("2026-04-07", "2026-04") pass through unchanged.
+function utcToLocalLabel(s) {
+  if (!s) return s;
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2})(:\d{2})?$/);
+  if (!m) return s;
+  const iso = m[1] + 'T' + m[2] + (m[3] || ':00') + ':00Z';
+  const d = new Date(iso);
+  if (isNaN(d)) return s;
+  const ld = localDateStr(d);
+  const hh = String(d.getHours()).padStart(2, '0');
+  if (m[3]) return `${ld} ${hh}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${ld} ${hh}`;
+}
+
 // ── i18n ──
 const I18N = {
   en: {
@@ -101,15 +126,15 @@ function baseOpt() {
 
 // ── Time range ──
 function getTimeRange() {
-  const now = new Date(); const todayStr = now.toISOString().slice(0, 10);
+  const now = new Date(); const todayStr = localDateStr(now);
   switch (state.preset) {
     case 'today': return { from: todayStr, to: todayStr };
-    case 'thisWeek': { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
+    case 'thisWeek': { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return { from: localDateStr(d), to: todayStr }; }
     case 'thisMonth': return { from: todayStr.slice(0, 8) + '01', to: todayStr };
     case 'thisYear': return { from: todayStr.slice(0, 5) + '01-01', to: todayStr };
-    case 'last3d': { const d = new Date(now); d.setDate(d.getDate() - 2); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
-    case 'last7d': { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
-    case 'last30d': { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: d.toISOString().slice(0, 10), to: todayStr }; }
+    case 'last3d': { const d = new Date(now); d.setDate(d.getDate() - 2); return { from: localDateStr(d), to: todayStr }; }
+    case 'last7d': { const d = new Date(now); d.setDate(d.getDate() - 6); return { from: localDateStr(d), to: todayStr }; }
+    case 'last30d': { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: localDateStr(d), to: todayStr }; }
     case 'custom': return { from: state.customFrom || todayStr, to: state.customTo || todayStr };
     default: return { from: todayStr, to: todayStr };
   }
@@ -201,10 +226,10 @@ async function refresh() {
     ];
 
     // Cost Trend
-    const costDates = [...new Set((costTime || []).map(d => d.date))].sort();
+    const costDates = [...new Set((costTime || []).map(d => d.date))].sort().map(utcToLocalLabel);
     const costModels = [...new Set((costTime || []).map(d => d.model))];
     const costSeries = costModels.map(m => {
-      const map = Object.fromEntries((costTime || []).filter(d => d.model === m).map(d => [d.date, d.value]));
+      const map = Object.fromEntries((costTime || []).filter(d => d.model === m).map(d => [utcToLocalLabel(d.date), d.value]));
       return {
         name: m,
         type: 'bar', stack: 'cost',
@@ -236,7 +261,7 @@ async function refresh() {
     }, true);
 
     // Token Breakdown (Bar)
-    const tokenDates = (tokensTime || []).map(d => d.date);
+    const tokenDates = (tokensTime || []).map(d => utcToLocalLabel(d.date));
     charts.tokens.setOption({
       ...baseOpt(), grid: { ...baseOpt().grid, top: 50 }, dataZoom: dataZoomOpts,
       graphic: tokenDates.length === 0 ? emptyGraphic(t('noSessions')) : { type: 'text', style: { text: '' } },
@@ -281,6 +306,13 @@ function relTime(ts) {
   return d.toLocaleDateString();
 }
 
+function fmtLocalTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T').replace(' +0000 UTC', 'Z'));
+  if (isNaN(d)) return ts;
+  return d.toLocaleString();
+}
+
 // ── Session Table Logic ──
 function renderSessionTable() {
   const projFilter = ($('filter-project').value || '').toLowerCase();
@@ -322,7 +354,7 @@ function renderSessionTable() {
         <td><span class="badge ${esc(s.source)}">${esc(s.source)}</span></td>
         <td title="${esc(s.cwd)}">${esc(s.project || s.cwd || '-')}</td>
         <td>${esc(s.git_branch || '-')}</td>
-        <td title="${esc(s.start_time)}">${relTime(s.start_time)}</td>
+        <td title="${esc(fmtLocalTime(s.start_time))}">${relTime(s.start_time)}</td>
         <td>${s.prompts}</td><td>${fmt(s.tokens || 0)}</td><td style="font-weight:500;color:var(--green)">${fmtCost(s.total_cost || 0)}</td>
         <td>
           <button class="expand-btn ${isExpanded ? 'open' : ''}" data-sid="${esc(s.session_id)}">
@@ -455,8 +487,8 @@ function buildControls() {
 
   $('custom-range-wrap').style.display = state.preset === 'custom' ? 'flex' : 'none';
   if (state.preset === 'custom') {
-    $('from').value = state.customFrom || new Date().toISOString().slice(0, 10);
-    $('to').value = state.customTo || new Date().toISOString().slice(0, 10);
+    $('from').value = state.customFrom || localDateStr(new Date());
+    $('to').value = state.customTo || localDateStr(new Date());
   }
   $('filter-project').placeholder = t('filterProject');
 }

@@ -131,6 +131,7 @@ The web dashboard provides:
 - **Session list** — sortable, filterable table with expandable per-model detail
 - **Dark/Light theme** — system-aware with manual toggle
 - **i18n** — English and Chinese
+- **Timezone handling** — all timestamps are stored in UTC; the frontend automatically converts to your browser's local timezone for date pickers, chart X-axis labels, and session timestamps
 
 ## Architecture
 
