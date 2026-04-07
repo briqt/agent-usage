@@ -116,6 +116,7 @@ func migrate(db *sql.DB) error {
 		);
 
 		DELETE FROM usage_records WHERE model = '<synthetic>';
+		DELETE FROM usage_records WHERE model = 'delivery-mirror';
 	`)
 	return err
 }

@@ -2,13 +2,12 @@
 *.db-shm
 *.db-wal
 config.local.yaml
-agent-usage
+/agent-usage
 devobs
 data/
 
-# Skills / agent tool directories
+# Skills / agent tool directories (third-party installed)
 .agents/
-skills/
 skills-lock.json
 .adal/
 .augment/

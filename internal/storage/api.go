@@ -220,12 +220,6 @@ func (d *DB) GetSessionDetail(sessionID string) ([]SessionDetail, error) {
 func (d *DB) GetSessions(from, to time.Time, source string) ([]SessionInfo, error) {
 	sf, sa := sourceFilter(source)
 	args := append([]interface{}{from, to}, sa...)
-	// For sessions, also filter the sessions table by source if specified
-	sessionSF := ""
-	if source != "" {
-		sessionSF = " AND s.source=?"
-		args = append(args, source)
-	}
 	rows, err := d.db.Query(`SELECT s.session_id, s.source, s.project, s.cwd, s.git_branch,
 		COALESCE(s.start_time,''), s.prompts,
 		COALESCE(u.cost,0), COALESCE(u.tokens,0)
@@ -233,7 +227,7 @@ func (d *DB) GetSessions(from, to time.Time, source string) ([]SessionInfo, erro
 		LEFT JOIN (SELECT session_id, SUM(cost_usd) as cost, SUM(input_tokens+output_tokens) as tokens
 			FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) u
 		ON s.session_id = u.session_id
-		WHERE u.session_id IS NOT NULL`+sessionSF+`
+		WHERE u.session_id IS NOT NULL
 		ORDER BY s.start_time DESC`, args...)
 	if err != nil {
 		return nil, err
