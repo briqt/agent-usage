@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%233b82f6'/></svg>">
 <title>agent-usage — AI Coding Agent Usage</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
@@ -43,15 +44,15 @@ body {
 .top-bar {
   position: sticky; top: 0; z-index: 100;
   background: rgba(var(--bg-rgb), 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border); margin-bottom: 24px;
-  padding: 12px 0 10px;
+  border-bottom: 1px solid var(--border); margin-bottom: 16px;
+  padding: 8px 0;
 }
-.top-bar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.top-bar-header h1 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.top-bar-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.top-bar-header h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap; margin-right: 4px; }
 .top-bar-header h1 .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); }
 .top-bar-header h1 span { color: var(--text); }
-.top-bar-header h1 .sub { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 4px; }
-.top-bar-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.top-bar-header h1 .sub { display: none; }
+.top-bar-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
 select, input[type=date], input[type=text], .ctrl-btn {
   background: var(--select-bg); border: 1px solid var(--border); color: var(--text);
   padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; outline: none;
@@ -81,10 +82,10 @@ select:focus, input[type=date]:focus, input[type=text]:focus { border-color: var
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Stats Grid ── */
-.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 24px; }
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat-card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 24px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
   display: flex; flex-direction: column; justify-content: center;
 }
 .stat-card::before {
@@ -96,19 +97,19 @@ select:focus, input[type=date]:focus, input[type=text]:focus { border-color: var
 .stat-card:nth-child(3) { --c: var(--orange); }
 .stat-card:nth-child(4) { --c: var(--pink); }
 .stat-card:nth-child(5) { --c: var(--accent); }
-.stat-card .label { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-.stat-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; font-feature-settings: "tnum"; font-family: 'Fira Code', 'SF Mono', monospace; }
+.stat-card .label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+.stat-card .value { font-size: 24px; font-weight: 700; margin-top: 4px; font-feature-settings: "tnum"; font-family: 'Fira Code', 'SF Mono', monospace; }
 .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
 
 /* ── Charts Grid ── */
-.charts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 24px; }
+.charts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 16px; }
 .chart-card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 20px; box-shadow: var(--shadow);
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; box-shadow: var(--shadow);
 }
-.chart-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
-.chart-container { height: 320px; width: 100%; }
+.chart-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+.chart-container { height: 260px; width: 100%; }
 
 /* ── Sessions Table ── */
 .sessions-card {
@@ -199,6 +200,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   .stats { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
+  .top-bar-header { flex-direction: column; align-items: stretch; }
   .top-bar-controls { flex-direction: column; align-items: stretch; }
   .ctrl-actions { margin-left: 0; }
   .preset-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
@@ -212,35 +214,33 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 <div class="app-container">
   <div class="top-bar">
     <div class="top-bar-header">
-      <h1><div class="logo-dot"></div><span>agent-usage</span> <span class="sub" data-i18n="title">Dashboard</span></h1>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <select id="sel-theme" title="Theme"></select>
-        <select id="sel-lang" title="Language"></select>
-      </div>
-    </div>
-    <div class="top-bar-controls">
-      <div class="preset-bar" id="preset-bar"></div>
-      <div style="display:flex; gap:8px; align-items:center;" id="custom-range-wrap">
-        <input type="date" id="from"> <span style="color:var(--muted)" data-i18n="to">-</span> <input type="date" id="to">
-      </div>
-      <div class="separator"></div>
-      <select id="sel-granularity"></select>
-      <div class="separator"></div>
-      <select id="filter-source" style="padding:6px 12px;">
-        <option value="">All Sources</option>
-        <option value="claude">Claude Code</option>
-        <option value="codex">Codex</option>
-        <option value="openclaw">OpenClaw</option>
-      </select>
-      <div class="ctrl-actions">
-        <button class="ctrl-btn primary" id="btn-refresh">
-          <svg class="icon-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-          <span data-i18n="refresh">Refresh</span>
-        </button>
-        <button class="ctrl-btn" id="btn-auto-refresh">
-          <span id="auto-status">Auto</span>
-        </button>
-        <select id="sel-refresh-interval"></select>
+      <h1><div class="logo-dot"></div><span>agent-usage</span></h1>
+      <div class="top-bar-controls">
+        <div class="preset-bar" id="preset-bar"></div>
+        <div style="display:flex; gap:8px; align-items:center;" id="custom-range-wrap">
+          <input type="date" id="from"> <span style="color:var(--muted)" data-i18n="to">-</span> <input type="date" id="to">
+        </div>
+        <div class="separator"></div>
+        <select id="sel-granularity"></select>
+        <div class="separator"></div>
+        <select id="filter-source" style="padding:6px 12px;">
+          <option value="">All Sources</option>
+          <option value="claude">Claude Code</option>
+          <option value="codex">Codex</option>
+          <option value="openclaw">OpenClaw</option>
+        </select>
+        <div class="ctrl-actions">
+          <button class="ctrl-btn primary" id="btn-refresh">
+            <svg class="icon-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+            <span data-i18n="refresh">Refresh</span>
+          </button>
+          <button class="ctrl-btn" id="btn-auto-refresh">
+            <span id="auto-status">Auto</span>
+          </button>
+          <select id="sel-refresh-interval"></select>
+          <select id="sel-theme" title="Theme"></select>
+          <select id="sel-lang" title="Language"></select>
+        </div>
       </div>
     </div>
   </div>
