@@ -50,9 +50,8 @@ UID/GID 权限及本地构建详见 [Docker 详情](#docker-详情)。
 
 Skill 可独立使用，无需安装或运行 agent-usage 服务 —— 直接解析本地会话文件即可工作。如果检测到 agent-usage 服务在运行，自动切换到 API 查询以获取更精确的费用数据。
 
-支持 Claude Code、Cursor、Kiro、Copilot 等 [40+ 种 AI 编程工具](https://github.com/vercel-labs/skills)。
-
 ```bash
+# 通过 vercel-labs/skills 安装，支持 Claude Code、Cursor、Kiro 等 40+ 种 agent
 npx skills add briqt/agent-usage -y
 ```
 
