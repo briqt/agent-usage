@@ -55,7 +55,7 @@ The skill works standalone — no need to install or run the agent-usage server.
 npx skills add briqt/agent-usage -y
 ```
 
-Once installed, ask your agent "how much did I spend this month?" or "which model costs the most?". See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.
+Once installed, try: `查下 agent usage`、`agent usage 统计` or `check agent usage`. See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.
 
 ## Configuration
 
