@@ -25,6 +25,10 @@ TO="${TO:-$TODAY}"
 
 build_qs() {
   local qs="from=${FROM}&to=${TO}"
+  # Send local timezone offset (JS convention: UTC+8 = -480)
+  local tz_offset
+  tz_offset=$(date +%z | awk '{h=substr($0,1,3)+0; m=substr($0,4,2)+0; print -(h*60+m)}')
+  qs="${qs}&tz_offset=${tz_offset}"
   [[ -n "$SOURCE" ]] && qs="${qs}&source=${SOURCE}"
   [[ -n "$GRAN" ]] && qs="${qs}&granularity=${GRAN}"
   echo "$qs"
