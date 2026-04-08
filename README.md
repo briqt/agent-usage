@@ -238,6 +238,10 @@ docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local 
 - [ ] Alerting (cost thresholds)
 - [ ] Multi-user support
 
+## Community
+
+Join the discussion at [Linux.do](https://linux.do).
+
 ## License
 
 [Apache 2.0](LICENSE)
