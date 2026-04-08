@@ -1,11 +1,11 @@
 ---
 name: agent-usage
-description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, and OpenClaw. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
+description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, OpenClaw, and OpenCode. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
 ---
 
 # agent-usage — AI Coding Agent Usage Query
 
-Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, and OpenClaw.
+Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, OpenClaw, and OpenCode.
 
 ## When to Use
 
@@ -56,7 +56,7 @@ Commands:
 Options:
 - `--from YYYY-MM-DD` — Start date (default: today)
 - `--to YYYY-MM-DD` — End date (default: today)
-- `--source claude|codex|openclaw` — Filter by source (default: all)
+- `--source claude|codex|openclaw|opencode` — Filter by source (default: all)
 - `--granularity 1m|30m|1h|6h|12h|1d|1w|1M` — Time bucket (default: 1d)
 - `--session-id ID` — Session ID for detail query
 
@@ -111,6 +111,7 @@ Calculate actual YYYY-MM-DD dates before passing to scripts.
 | claude / claude code | claude |
 | codex / openai codex | codex |
 | openclaw | openclaw |
+| opencode | opencode |
 | all / everything / total | (omit --source) |
 
 ## Examples
@@ -131,4 +132,4 @@ User: "Token usage trend this week by hour"
 
 - Local mode pricing is approximate — only common models have built-in prices
 - For accurate pricing, deploy the agent-usage server: https://github.com/briqt/agent-usage
-- Local mode scans `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents` by default
+- Local mode scans `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents`, `~/.local/share/opencode/opencode.db` by default

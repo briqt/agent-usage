@@ -21,6 +21,7 @@ services:
       - ~/.claude/projects:/sessions/claude:ro
       - ~/.codex/sessions:/sessions/codex:ro
       - ~/.openclaw/agents:/sessions/openclaw:ro
+      - ~/.local/share/opencode:/sessions/opencode:ro
       # Optional: custom config override
       # - ./config.yaml:/etc/agent-usage/config.yaml:ro
 

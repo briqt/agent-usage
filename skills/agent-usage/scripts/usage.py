@@ -257,6 +257,52 @@ def scan_openclaw(base_paths, from_dt, to_dt):
                 continue
     return records
 
+
+def scan_opencode(db_paths, from_dt, to_dt):
+    """Parse OpenCode SQLite database."""
+    import sqlite3
+    records = []
+    for db_path in db_paths:
+        db_path = Path(db_path).expanduser()
+        if not db_path.exists():
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            rows = conn.execute(
+                "SELECT m.data, m.session_id, s.directory FROM message m "
+                "JOIN session s ON m.session_id = s.id"
+            ).fetchall()
+            conn.close()
+            for data_json, session_id, directory in rows:
+                try:
+                    msg = json.loads(data_json)
+                except json.JSONDecodeError:
+                    continue
+                if msg.get("role") != "assistant" or not msg.get("modelID"):
+                    continue
+                tokens = msg.get("tokens", {})
+                if tokens.get("input", 0) == 0 and tokens.get("output", 0) == 0:
+                    continue
+                time_info = msg.get("time", {})
+                created_ms = time_info.get("created", 0)
+                if not created_ms:
+                    continue
+                ts = datetime.fromtimestamp(created_ms / 1000)
+                if not (from_dt <= ts.date() <= to_dt):
+                    continue
+                cache = tokens.get("cache", {})
+                records.append({
+                    "source": "opencode", "model": msg.get("modelID", ""),
+                    "timestamp": ts, "project": directory or "", "session_id": session_id,
+                    "input": tokens.get("input", 0) or 0,
+                    "output": tokens.get("output", 0) or 0,
+                    "cache_read": cache.get("read", 0) or 0,
+                    "cache_create": cache.get("write", 0) or 0,
+                })
+        except Exception:
+            continue
+    return records
+
 # PLACEHOLDER_COMMANDS_MARKER
 
 # ── Collect all records ──
@@ -265,6 +311,7 @@ DEFAULT_PATHS = {
     "claude": ["~/.claude/projects"],
     "codex": ["~/.codex/sessions"],
     "openclaw": ["~/.openclaw/agents"],
+    "opencode": ["~/.local/share/opencode/opencode.db"],
 }
 
 def collect(from_dt, to_dt, source=None):
@@ -275,6 +322,8 @@ def collect(from_dt, to_dt, source=None):
         records += scan_codex(DEFAULT_PATHS["codex"], from_dt, to_dt)
     if source in (None, "", "openclaw"):
         records += scan_openclaw(DEFAULT_PATHS["openclaw"], from_dt, to_dt)
+    if source in (None, "", "opencode"):
+        records += scan_opencode(DEFAULT_PATHS["opencode"], from_dt, to_dt)
     return records
 
 

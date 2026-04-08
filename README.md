@@ -10,13 +10,13 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-Collects local session data from Claude Code, Codex, OpenClaw and other AI coding agents, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
+Collects local session data from Claude Code, Codex, OpenClaw, OpenCode and other AI coding agents, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
 ![Dashboard](docs/dashboard.png)
 
 ## Features
 
-- 📁 **Local file parsing** — reads Claude Code, Codex CLI, and OpenClaw session files directly
+- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw session files and OpenCode SQLite database directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
 - 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
@@ -34,7 +34,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` mounts `~/.claude/projects`, `~/.codex/sessions`, and `~/.openclaw/agents` read-only. Data persists in `./data/`.
+The default `docker-compose.yml` mounts `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents`, and `~/.local/share/opencode` read-only. Data persists in `./data/`.
 
 The container uses `config.docker.yaml` by default (binds to `0.0.0.0`, stores data in `/data/`). To override, mount your own config:
 
@@ -80,6 +80,11 @@ collectors:
     paths:
       - "~/.openclaw/agents"
     scan_interval: 60s
+  opencode:
+    enabled: true
+    paths:
+      - "~/.local/share/opencode/opencode.db"
+    scan_interval: 60s
 
 storage:
   path: "./agent-usage.db"
@@ -118,6 +123,7 @@ open http://localhost:9800
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `~/.claude/projects/<project>/<session>.jsonl` | JSONL |
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<year>/<month>/<day>/<session>.jsonl` | JSONL |
 | [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
+| [OpenCode](https://github.com/opencode-ai/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
 
 ### Adding New Sources
 
@@ -132,7 +138,7 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw), auto-refresh
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode), auto-refresh
 - **Summary cards** — total tokens, cost, sessions, prompts, API calls
 - **Token usage** — stacked bar chart (input/output/cache read/cache write)
 - **Cost trend** — stacked bar chart by model with consistent color mapping
@@ -156,7 +162,8 @@ agent-usage
 │   │   ├── claude_process.go   # Claude Code JSONL parser
 │   │   ├── codex.go            # Codex CLI JSONL parser
 │   │   ├── openclaw.go         # OpenClaw session scanner
-│   │   └── openclaw_process.go # OpenClaw JSONL parser
+│   │   ├── openclaw_process.go # OpenClaw JSONL parser
+│   │   └── opencode.go         # OpenCode SQLite collector
 │   ├── pricing/                # litellm price fetcher + cost formula
 │   ├── storage/
 │   │   ├── sqlite.go           # DB init + migrations
@@ -184,7 +191,7 @@ When prices update, historical records are automatically backfilled.
 
 ## API Endpoints
 
-All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`) to filter by agent, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
+All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`) to filter by agent, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
 
 | Endpoint | Description |
 |----------|-------------|
