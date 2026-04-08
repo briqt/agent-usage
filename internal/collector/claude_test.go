@@ -44,7 +44,7 @@ func TestClaudeCollector_Scan(t *testing.T) {
 	// Use wide UTC range to avoid timezone issues with SQLite string comparison
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from, to)
+	stats, err := db.GetDashboardStats(from, to, "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestClaudeCollector_IncrementalScan(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from, to)
+	stats, err := db.GetDashboardStats(from, to, "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestClaudeCollector_PromptCounting(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to)
+	sessions, err := db.GetSessions(from, to, "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}

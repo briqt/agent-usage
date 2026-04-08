@@ -1,6 +1,9 @@
 package storage
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // sourceFilter returns a SQL clause and args for optional source filtering.
 func sourceFilter(source string) (string, []interface{}) {
@@ -101,36 +104,38 @@ func (d *DB) GetCostByModel(from, to time.Time, source string) ([]CostByModel, e
 // Timestamps are stored as Go time strings like "2026-04-03 09:51:45.996 +0000 UTC",
 // so we use SUBSTR-based extraction since SQLite's STRFTIME cannot parse this format.
 // Supported codes: 1m, 30m, 1h, 6h, 12h, 1d, 1w, 1M.
-func granularityExpr(g string) string {
+func granularityExpr(g string, tzOffset int) string {
+	// Base timestamp expression: either raw or shifted to user's local time.
+	// tzOffset uses JS getTimezoneOffset() convention (UTC-local in minutes).
+	// To convert UTC→local we apply -tzOffset minutes.
+	ts := "timestamp"
+	if tzOffset != 0 {
+		ts = fmt.Sprintf("DATETIME(SUBSTR(timestamp,1,19), '%+d minutes')", -tzOffset)
+	}
+
 	switch g {
 	case "1m":
-		// "2026-04-03 09:51" — truncate to minute
-		return `SUBSTR(timestamp,1,16)`
+		return `SUBSTR(` + ts + `,1,16)`
 	case "30m":
-		// floor minute to 00 or 30
-		return `SUBSTR(timestamp,1,14) || PRINTF('%02d', (CAST(SUBSTR(timestamp,15,2) AS INTEGER)/30)*30)`
+		return `SUBSTR(` + ts + `,1,14) || PRINTF('%02d', (CAST(SUBSTR(` + ts + `,15,2) AS INTEGER)/30)*30)`
 	case "1h":
-		// "2026-04-03 09" — truncate to hour
-		return `SUBSTR(timestamp,1,13)`
+		return `SUBSTR(` + ts + `,1,13)`
 	case "6h":
-		// floor hour to 0,6,12,18
-		return `SUBSTR(timestamp,1,11) || PRINTF('%02d', (CAST(SUBSTR(timestamp,12,2) AS INTEGER)/6)*6)`
+		return `SUBSTR(` + ts + `,1,11) || PRINTF('%02d', (CAST(SUBSTR(` + ts + `,12,2) AS INTEGER)/6)*6)`
 	case "12h":
-		// floor hour to 0 or 12
-		return `SUBSTR(timestamp,1,11) || PRINTF('%02d', (CAST(SUBSTR(timestamp,12,2) AS INTEGER)/12)*12)`
+		return `SUBSTR(` + ts + `,1,11) || PRINTF('%02d', (CAST(SUBSTR(` + ts + `,12,2) AS INTEGER)/12)*12)`
 	case "1w":
-		// Use date() with weekday modifier — works because SUBSTR(ts,1,10) is a valid date
-		return `DATE(SUBSTR(timestamp,1,10), 'weekday 0', '-6 days')`
+		return `DATE(SUBSTR(` + ts + `,1,10), 'weekday 0', '-6 days')`
 	case "1M":
-		return `SUBSTR(timestamp,1,7)`
+		return `SUBSTR(` + ts + `,1,7)`
 	default: // "1d" or unknown
-		return `SUBSTR(timestamp,1,10)`
+		return `SUBSTR(` + ts + `,1,10)`
 	}
 }
 
 // GetCostOverTime returns cost per model grouped by the given granularity within the time range.
-func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source string) ([]TimeSeriesPoint, error) {
-	expr := granularityExpr(granularity)
+func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source string, tzOffset int) ([]TimeSeriesPoint, error) {
+	expr := granularityExpr(granularity, tzOffset)
 	sf, sa := sourceFilter(source)
 	args := append([]interface{}{from, to}, sa...)
 	rows, err := d.db.Query(`SELECT `+expr+` as d, model, SUM(cost_usd) as cost
@@ -155,8 +160,8 @@ func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source stri
 }
 
 // GetTokensOverTime returns token usage breakdown grouped by the given granularity within the time range.
-func (d *DB) GetTokensOverTime(from, to time.Time, granularity string, source string) ([]TokenTimeSeriesPoint, error) {
-	expr := granularityExpr(granularity)
+func (d *DB) GetTokensOverTime(from, to time.Time, granularity string, source string, tzOffset int) ([]TokenTimeSeriesPoint, error) {
+	expr := granularityExpr(granularity, tzOffset)
 	sf, sa := sourceFilter(source)
 	args := append([]interface{}{from, to}, sa...)
 	rows, err := d.db.Query(`SELECT `+expr+` as d,

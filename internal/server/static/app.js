@@ -16,20 +16,10 @@ function localDateStr(d) {
   return `${y}-${m}-${day}`;
 }
 
-// Convert UTC date label from API to local time label.
-// Sub-day formats ("2026-04-07 09:51", "2026-04-07 09") are shifted to local tz.
-// Day/week/month formats ("2026-04-07", "2026-04") pass through unchanged.
+// Convert date label from API to display label.
+// With tz_offset, bucketing is already in local time — return as-is.
 function utcToLocalLabel(s) {
-  if (!s) return s;
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2})(:\d{2})?$/);
-  if (!m) return s;
-  const iso = m[1] + 'T' + m[2] + (m[3] || ':00') + ':00Z';
-  const d = new Date(iso);
-  if (isNaN(d)) return s;
-  const ld = localDateStr(d);
-  const hh = String(d.getHours()).padStart(2, '0');
-  if (m[3]) return `${ld} ${hh}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return `${ld} ${hh}`;
+  return s;
 }
 
 // ── i18n ──
@@ -145,6 +135,7 @@ async function api(path) {
   let q = [`from=${r.from}`, `to=${r.to}`];
   if (state.granularity) q.push(`granularity=${state.granularity}`);
   if (state.source) q.push(`source=${state.source}`);
+  q.push(`tz_offset=${new Date().getTimezoneOffset()}`);
   const res = await fetch(`/api/${path}?${q.join('&')}`);
   return res.json();
 }

@@ -77,7 +77,7 @@ func TestInsertUsageAndDedup(t *testing.T) {
 	// Verify only one record exists
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to)
+	stats, err := db.GetDashboardStats(from, to, "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestInsertUsageBatch(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to)
+	stats, err := db.GetDashboardStats(from, to, "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestRecalcCosts(t *testing.T) {
 	// Verify cost was updated
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to)
+	stats, err := db.GetDashboardStats(from, to, "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestGetCostByModel(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	result, err := db.GetCostByModel(from, to)
+	result, err := db.GetCostByModel(from, to, "")
 	if err != nil {
 		t.Fatalf("GetCostByModel: %v", err)
 	}
@@ -259,12 +259,40 @@ func TestGetCostOverTime(t *testing.T) {
 
 	from := ts1.Add(-time.Hour)
 	to := ts2.Add(time.Hour)
-	result, err := db.GetCostOverTime(from, to, "1d")
+	result, err := db.GetCostOverTime(from, to, "1d", "", 0)
 	if err != nil {
 		t.Fatalf("GetCostOverTime: %v", err)
 	}
 	if len(result) != 2 {
 		t.Errorf("expected 2 points, got %d", len(result))
+	}
+}
+
+func TestGetCostOverTimeWithTimezone(t *testing.T) {
+	db := tempDB(t)
+	// 2025-01-01 17:00 UTC = 2025-01-02 01:00 UTC+8
+	ts := time.Date(2025, 1, 1, 17, 0, 0, 0, time.UTC)
+
+	records := []*UsageRecord{
+		{Source: "claude", SessionID: "s1", Model: "model-a", CostUSD: 1.0, Timestamp: ts},
+	}
+	if err := db.InsertUsageBatch(records); err != nil {
+		t.Fatalf("InsertUsageBatch: %v", err)
+	}
+
+	// UTC+8 local day: 2025-01-02 00:00 ~ 23:59 local = 2025-01-01 16:00 ~ 2025-01-02 15:59 UTC
+	from := time.Date(2025, 1, 1, 16, 0, 0, 0, time.UTC)
+	to := time.Date(2025, 1, 2, 15, 59, 59, 0, time.UTC)
+	result, err := db.GetCostOverTime(from, to, "1d", "", -480)
+	if err != nil {
+		t.Fatalf("GetCostOverTime: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 point, got %d", len(result))
+	}
+	// Should bucket into local date 2025-01-02, not UTC date 2025-01-01
+	if result[0].Date != "2025-01-02" {
+		t.Errorf("expected date 2025-01-02, got %s", result[0].Date)
 	}
 }
 
@@ -290,7 +318,7 @@ func TestGetSessions(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	sessions, err := db.GetSessions(from, to)
+	sessions, err := db.GetSessions(from, to, "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}

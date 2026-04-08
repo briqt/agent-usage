@@ -44,22 +44,28 @@ func (s *Server) Start() error {
 	return http.ListenAndServe(s.addr, mux)
 }
 
-func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time, error) {
+func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time, int, error) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
+
+	// Parse tz_offset (minutes, JS getTimezoneOffset convention: UTC+8 = -480)
+	tzOffset := 0
+	if tzStr := r.URL.Query().Get("tz_offset"); tzStr != "" {
+		fmt.Sscanf(tzStr, "%d", &tzOffset)
+	}
 
 	var fromTime, toTime time.Time
 	var err error
 	if from != "" {
 		fromTime, err = time.Parse("2006-01-02", from)
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'from' date %q: expected YYYY-MM-DD", from)
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid 'from' date %q: expected YYYY-MM-DD", from)
 		}
 	}
 	if to != "" {
 		toTime, err = time.Parse("2006-01-02", to)
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'to' date %q: expected YYYY-MM-DD", to)
+			return time.Time{}, time.Time{}, 0, fmt.Errorf("invalid 'to' date %q: expected YYYY-MM-DD", to)
 		}
 		toTime = toTime.Add(24*time.Hour - time.Second)
 	}
@@ -69,10 +75,18 @@ func (s *Server) parseTimeRange(r *http.Request) (time.Time, time.Time, error) {
 	if toTime.IsZero() {
 		toTime = time.Now().Add(24 * time.Hour)
 	}
-	if fromTime.After(toTime) {
-		return time.Time{}, time.Time{}, fmt.Errorf("'from' date (%s) is after 'to' date (%s): swap them or correct the range", from, to)
+
+	// Apply timezone offset: convert local day boundaries to UTC
+	if tzOffset != 0 {
+		offset := time.Duration(tzOffset) * time.Minute
+		fromTime = fromTime.Add(offset)
+		toTime = toTime.Add(offset)
 	}
-	return fromTime, toTime, nil
+
+	if fromTime.After(toTime) {
+		return time.Time{}, time.Time{}, 0, fmt.Errorf("'from' date (%s) is after 'to' date (%s): swap them or correct the range", from, to)
+	}
+	return fromTime, toTime, tzOffset, nil
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
@@ -92,7 +106,7 @@ func badRequest(w http.ResponseWriter, err error) {
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	from, to, err := s.parseTimeRange(r)
+	from, to, _, err := s.parseTimeRange(r)
 	if err != nil {
 		badRequest(w, err)
 		return
@@ -107,7 +121,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
-	from, to, err := s.parseTimeRange(r)
+	from, to, _, err := s.parseTimeRange(r)
 	if err != nil {
 		badRequest(w, err)
 		return
@@ -122,14 +136,14 @@ func (s *Server) handleCostByModel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
-	from, to, err := s.parseTimeRange(r)
+	from, to, tzOffset, err := s.parseTimeRange(r)
 	if err != nil {
 		badRequest(w, err)
 		return
 	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
-	data, err := s.db.GetCostOverTime(from, to, granularity, source)
+	data, err := s.db.GetCostOverTime(from, to, granularity, source, tzOffset)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -138,14 +152,14 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
-	from, to, err := s.parseTimeRange(r)
+	from, to, tzOffset, err := s.parseTimeRange(r)
 	if err != nil {
 		badRequest(w, err)
 		return
 	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
-	data, err := s.db.GetTokensOverTime(from, to, granularity, source)
+	data, err := s.db.GetTokensOverTime(from, to, granularity, source, tzOffset)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -154,7 +168,7 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	from, to, err := s.parseTimeRange(r)
+	from, to, _, err := s.parseTimeRange(r)
 	if err != nil {
 		badRequest(w, err)
 		return
