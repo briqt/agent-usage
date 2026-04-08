@@ -50,8 +50,10 @@ See [Docker Details](#docker-details) for UID/GID permissions and local builds.
 
 The skill works standalone — no need to install or run the agent-usage server. It parses local JSONL session files directly. If the agent-usage server is detected, it automatically switches to API queries for more accurate cost data.
 
+Supports Claude Code, Cursor, Kiro, Copilot, and [40+ AI coding agents](https://github.com/vercel-labs/skills).
+
 ```bash
-npx skills add briqt/agent-usage
+npx skills add briqt/agent-usage -y
 ```
 
 Once installed, ask your agent "how much did I spend this month?" or "which model costs the most?". See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.

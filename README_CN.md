@@ -48,10 +48,12 @@ UID/GID 权限及本地构建详见 [Docker 详情](#docker-详情)。
 
 ## 在 Agent 对话中查询用量
 
-Skill 可独立使用，无需安装或运行 agent-usage 服务。安装后直接解析本地 JSONL 会话文件；如果检测到 agent-usage 服务在运行，则自动切换到 API 查询以获取更精确的费用数据。
+Skill 可独立使用，无需安装或运行 agent-usage 服务 —— 直接解析本地会话文件即可工作。如果检测到 agent-usage 服务在运行，自动切换到 API 查询以获取更精确的费用数据。
+
+支持 Claude Code、Cursor、Kiro、Copilot 等 [40+ 种 AI 编程工具](https://github.com/vercel-labs/skills)。
 
 ```bash
-npx skills add briqt/agent-usage
+npx skills add briqt/agent-usage -y
 ```
 
 安装后问 agent "这个月花了多少钱"、"哪个模型最贵" 即可。详见 [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md)。
