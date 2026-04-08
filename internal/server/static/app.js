@@ -37,7 +37,7 @@ const I18N = {
     gran_1m: '1 min', gran_30m: '30 min', gran_1h: '1 hour', gran_6h: '6 hours', gran_12h: '12 hours', gran_1d: '1 day', gran_1w: '1 week', gran_1M: '1 month',
     model: 'Model', calls: 'Calls', allSources: 'All Sources', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: 'Filter by project...', justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago',
-    noSessions: 'No sessions found in this period.'
+    noSessions: 'No sessions found in this period.', unitMin: 'min', unitSec: 'sec'
   },
   zh: {
     title: '使用分析', to: '至', totalCost: '总费用', totalTokens: '总 Tokens',
@@ -52,7 +52,7 @@ const I18N = {
     gran_1m: '1 分钟', gran_30m: '30 分钟', gran_1h: '1 小时', gran_6h: '6 小时', gran_12h: '12 小时', gran_1d: '1 天', gran_1w: '1 周', gran_1M: '1 个月',
     model: '模型', calls: '调用次数', allSources: '全部来源', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw',
     filterProject: '按项目筛选...', justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前',
-    noSessions: '当前时间段内暂无会话数据。'
+    noSessions: '当前时间段内暂无会话数据。', unitMin: '分钟', unitSec: '秒'
   }
 };
 
@@ -89,6 +89,7 @@ function persist(key, val) { state[key] = val; localStorage.setItem('au-' + key,
 function applyTheme() {
   const th = state.theme === 'system' ? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : state.theme;
   document.documentElement.setAttribute('data-theme', th);
+  document.documentElement.style.colorScheme = th;
   Object.values(charts).forEach(c => c && c.resize());
 }
 
@@ -341,7 +342,7 @@ function renderSessionTable() {
     // Render only main rows to prevent flicker
     tb.innerHTML = page.map(s => {
       const isExpanded = expandedSessions.has(s.session_id);
-      return `<tr class="session-row" data-sid="${esc(s.session_id)}">
+      return `<tr class="session-row${isExpanded ? ' expanded' : ''}" data-sid="${esc(s.session_id)}">
         <td><span class="badge ${esc(s.source)}">${esc(s.source)}</span></td>
         <td title="${esc(s.cwd)}">${esc(s.project || s.cwd || '-')}</td>
         <td>${esc(s.git_branch || '-')}</td>
@@ -378,9 +379,11 @@ document.addEventListener('click', e => {
   const expandBtn = e.target.closest('.expand-btn');
   if (expandBtn) {
     const sid = expandBtn.dataset.sid;
+    const sessionRow = expandBtn.closest('.session-row');
     if (expandedSessions.has(sid)) {
       expandedSessions.delete(sid);
       expandBtn.classList.remove('open');
+      if (sessionRow) sessionRow.classList.remove('expanded');
       const detailRow = document.getElementById(`detail-row-${sid}`);
       if (detailRow) {
         detailRow.classList.remove('show');
@@ -389,6 +392,7 @@ document.addEventListener('click', e => {
     } else {
       expandedSessions.add(sid);
       expandBtn.classList.add('open');
+      if (sessionRow) sessionRow.classList.add('expanded');
       fetchAndInjectDetail(sid);
     }
   }
@@ -424,7 +428,7 @@ async function fetchAndInjectDetail(sid, isRestore = false) {
     if (!contentBox) return;
 
     if (!data || data.length === 0) {
-      contentBox.innerHTML = `<div style="color:var(--muted);">No detailed model breakdown.</div>`;
+      contentBox.innerHTML = `<div style="color:var(--muted);font-size:13px;">No detailed model breakdown.</div>`;
       return;
     }
 
@@ -436,8 +440,8 @@ async function fetchAndInjectDetail(sid, isRestore = false) {
         </thead>
         <tbody>
           ${data.map(d => `<tr>
-            <td style="font-weight:500;">${esc(d.model)}</td><td>${d.calls}</td><td>${fmt(d.input_tokens)}</td><td>${fmt(d.output_tokens)}</td>
-            <td>${fmt(d.cache_read)}</td><td>${fmt(d.cache_create)}</td><td style="color:var(--green)">${fmtCost(d.cost_usd)}</td>
+            <td>${esc(d.model)}</td><td>${d.calls}</td><td>${fmt(d.input_tokens)}</td><td>${fmt(d.output_tokens)}</td>
+            <td>${fmt(d.cache_read)}</td><td>${fmt(d.cache_create)}</td><td>${fmtCost(d.cost_usd)}</td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -468,7 +472,7 @@ function buildControls() {
   $('sel-theme').innerHTML = buildOpts(['system', 'light', 'dark'], state.theme, t);
   $('sel-lang').innerHTML = `<option value="en" ${state.lang === 'en' ? 'selected' : ''}>EN</option><option value="zh" ${state.lang === 'zh' ? 'selected' : ''}>ZH</option>`;
   $('sel-granularity').innerHTML = buildOpts(GRANULARITIES, state.granularity, v => t('gran_' + v));
-  $('sel-refresh-interval').innerHTML = buildOpts(REFRESH_INTERVALS, state.refreshInterval, v => v >= 60 ? (v / 60) + ' min' : v + ' sec');
+  $('sel-refresh-interval').innerHTML = buildOpts(REFRESH_INTERVALS, state.refreshInterval, v => v >= 60 ? (v / 60) + ' ' + t('unitMin') : v + ' ' + t('unitSec'));
 
   const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['openclaw', 'openClaw']];
   $('filter-source').innerHTML = SOURCES.map(([v, k]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${t(k)}</option>`).join('');
@@ -486,7 +490,7 @@ function buildControls() {
 
 // ── Events Binding ──
 $('sel-theme').onchange = e => { persist('theme', e.target.value); applyTheme(); };
-$('sel-lang').onchange = e => { persist('lang', e.target.value); buildControls(); refresh(); };
+$('sel-lang').onchange = e => { persist('lang', e.target.value); buildControls(); refresh(); applyAutoRefresh(); };
 $('sel-granularity').onchange = e => { persist('granularity', e.target.value); refresh(); };
 $('sel-refresh-interval').onchange = e => { persist('refreshInterval', parseInt(e.target.value)); applyAutoRefresh(); };
 
