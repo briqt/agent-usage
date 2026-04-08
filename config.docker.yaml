@@ -15,6 +15,10 @@ collectors:
     enabled: true
     paths: ["/sessions/openclaw"]
     scan_interval: 60s
+  opencode:
+    enabled: true
+    paths: ["/sessions/opencode/opencode.db"]
+    scan_interval: 60s
 
 storage:
   path: "/data/agent-usage.db"

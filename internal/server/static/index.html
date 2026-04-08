@@ -144,6 +144,8 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 [data-theme="light"] .badge.codex { color: #16a34a; background: rgba(22,163,74,0.08); border-color: rgba(22,163,74,0.2); }
 .badge.openclaw { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
 [data-theme="light"] .badge.openclaw { color: #d97706; background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.2); }
+.badge.opencode { background: rgba(167,139,250,0.1); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+[data-theme="light"] .badge.opencode { color: #7c3aed; background: rgba(124,58,237,0.08); border-color: rgba(124,58,237,0.2); }
 
 /* Sorting */
 .sortable { cursor: pointer; user-select: none; transition: color 0.2s; }
@@ -177,6 +179,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 .detail-table {
   width: 100%; border-collapse: collapse;
   background: none; border: none;
+  table-layout: fixed;
 }
 .detail-table th {
   padding: 10px 16px !important; font-size: 12px; font-weight: 500;
@@ -191,7 +194,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
   border-bottom: 1px solid rgba(255,255,255,0.04);
   font-feature-settings: "tnum"; font-family: 'Fira Code', monospace;
 }
-.detail-table td:first-child { font-family: 'Inter', sans-serif; font-weight: 500; text-align: left; }
+.detail-table td:first-child { font-family: 'Inter', sans-serif; font-weight: 500; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail-table td:not(:first-child) { text-align: left; }
 .detail-table td:last-child { color: var(--green); opacity: 0.7; }
 .detail-table tbody tr:last-child td { border-bottom: none; }

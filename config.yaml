@@ -14,6 +14,10 @@ collectors:
     enabled: true
     paths: ["~/.openclaw/agents"]
     scan_interval: 60s
+  opencode:
+    enabled: true
+    paths: ["~/.local/share/opencode/opencode.db"]
+    scan_interval: 60s
 storage:
   path: "./agent-usage.db"
 pricing:

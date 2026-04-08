@@ -28,6 +28,7 @@ type CollectorConfigs struct {
 	Claude   CollectorConfig `yaml:"claude"`
 	Codex    CollectorConfig `yaml:"codex"`
 	OpenClaw CollectorConfig `yaml:"openclaw"`
+	OpenCode CollectorConfig `yaml:"opencode"`
 }
 
 // CollectorConfig holds settings for a single data source collector.
@@ -76,6 +77,11 @@ func DefaultConfig() *Config {
 				Paths:        []string{filepath.Join(home, ".openclaw", "agents")},
 				ScanInterval: 60 * time.Second,
 			},
+			OpenCode: CollectorConfig{
+				Enabled:      true,
+				Paths:        []string{filepath.Join(home, ".local", "share", "opencode", "opencode.db")},
+				ScanInterval: 60 * time.Second,
+			},
 		},
 		Storage: StorageConfig{Path: "./agent-usage.db"},
 		Pricing: PricingConfig{SyncInterval: time.Hour},
@@ -119,6 +125,9 @@ func Load(path string) (*Config, error) {
 	}
 	for i, p := range cfg.Collectors.OpenClaw.Paths {
 		cfg.Collectors.OpenClaw.Paths[i] = expandPath(p)
+	}
+	for i, p := range cfg.Collectors.OpenCode.Paths {
+		cfg.Collectors.OpenCode.Paths[i] = expandPath(p)
 	}
 	cfg.Storage.Path = expandPath(cfg.Storage.Path)
 	return cfg, nil
