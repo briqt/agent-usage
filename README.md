@@ -10,11 +10,9 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-## Why
+Collects local session data from Claude Code, Codex, OpenClaw and other AI coding agents, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
-AI coding tools (Claude Code, Codex, etc.) generate usage data across scattered local files and telemetry streams. Keeping track of costs and token usage across tools is tedious without a unified view.
-
-**agent-usage** gives you that view with a single binary and one SQLite file.
+![Dashboard](docs/dashboard.png)
 
 ## Features
 
@@ -47,6 +45,16 @@ volumes:
 ```
 
 See [Docker Details](#docker-details) for UID/GID permissions and local builds.
+
+## Query Usage from Agent Conversations
+
+The skill works standalone — no need to install or run the agent-usage server. It parses local JSONL session files directly. If the agent-usage server is detected, it automatically switches to API queries for more accurate cost data.
+
+```bash
+npx skills add briqt/agent-usage
+```
+
+Once installed, ask your agent "how much did I spend this month?" or "which model costs the most?". See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.
 
 ## Configuration
 
@@ -219,18 +227,6 @@ docker build -t agent-usage:local .
 # For China mainland, use GOPROXY:
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
-
-## AI Agent Skill
-
-Query your usage data directly in any AI coding agent conversation — no browser needed.
-
-```bash
-npx skills add briqt/agent-usage
-```
-
-Once installed, ask your agent things like "how much did I spend this month?" or "which model costs the most?". The skill auto-detects whether the agent-usage server is running (API mode) or falls back to parsing local JSONL files directly (local mode).
-
-See [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md) for details.
 
 ## Roadmap
 

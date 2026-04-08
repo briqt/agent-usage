@@ -10,11 +10,9 @@
 
 **[English](README.md)**
 
-## 为什么做这个
+统一采集 Claude Code、Codex、OpenClaw 等 AI 编程工具的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
 
-AI 编程工具（Claude Code、Codex 等）的使用数据分散在本地文件和遥测流中。要跨工具统一追踪费用和 token 用量并不容易。
-
-**agent-usage** 用一个二进制文件和一个 SQLite 文件解决了这个问题。
+![仪表板](docs/dashboard.png)
 
 ## 特性
 
@@ -47,6 +45,16 @@ volumes:
 ```
 
 UID/GID 权限及本地构建详见 [Docker 详情](#docker-详情)。
+
+## 在 Agent 对话中查询用量
+
+Skill 可独立使用，无需安装或运行 agent-usage 服务。安装后直接解析本地 JSONL 会话文件；如果检测到 agent-usage 服务在运行，则自动切换到 API 查询以获取更精确的费用数据。
+
+```bash
+npx skills add briqt/agent-usage
+```
+
+安装后问 agent "这个月花了多少钱"、"哪个模型最贵" 即可。详见 [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md)。
 
 ## 配置
 
@@ -219,18 +227,6 @@ docker build -t agent-usage:local .
 # 中国大陆用户，使用 GOPROXY 加速：
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
-
-## AI Agent Skill
-
-在任何 AI 编程工具的对话中直接查询用量数据，无需打开浏览器。
-
-```bash
-npx skills add briqt/agent-usage
-```
-
-安装后，直接问 agent "这个月花了多少钱"、"哪个模型最贵" 等问题。Skill 会自动检测 agent-usage 服务是否运行（API 模式），否则回退到直接解析本地 JSONL 文件（本地模式）。
-
-详见 [`skills/agent-usage/SKILL.md`](skills/agent-usage/SKILL.md)。
 
 ## 路线图
 
