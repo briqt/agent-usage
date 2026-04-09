@@ -83,7 +83,7 @@ select option { background: var(--select-bg); color: var(--text); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Stats Grid ── */
-.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 16px; }
+.stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 16px; }
 .stat-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   padding: 14px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
@@ -98,6 +98,7 @@ select option { background: var(--select-bg); color: var(--text); }
 .stat-card:nth-child(3) { --c: var(--orange); }
 .stat-card:nth-child(4) { --c: var(--pink); }
 .stat-card:nth-child(5) { --c: var(--accent); }
+.stat-card:nth-child(6) { --c: var(--purple); }
 .stat-card .label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
 .stat-card .value { font-size: 24px; font-weight: 700; margin-top: 4px; font-feature-settings: "tnum"; font-family: 'Fira Code', 'SF Mono', monospace; }
 .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
@@ -282,6 +283,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
     <div class="stat-card"><div class="label" data-i18n="sessions">Sessions</div><div class="value sessions" id="s-sessions">0</div></div>
     <div class="stat-card"><div class="label" data-i18n="prompts">Prompts</div><div class="value prompts" id="s-prompts">0</div></div>
     <div class="stat-card"><div class="label" data-i18n="apiCalls">API Calls</div><div class="value calls" id="s-calls">0</div></div>
+    <div class="stat-card"><div class="label" data-i18n="cacheHitRate">Cache Hit Rate</div><div class="value" id="s-cache-hit">0%</div></div>
   </div>
 
   <div class="charts">

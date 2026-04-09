@@ -20,6 +20,7 @@ type DashboardStats struct {
 	TotalSessions int     `json:"total_sessions"`
 	TotalPrompts  int     `json:"total_prompts"`
 	TotalCalls    int     `json:"total_calls"`
+	CacheHitRate  float64 `json:"cache_hit_rate"`
 }
 
 // CostByModel represents total cost for a single model.
@@ -63,10 +64,15 @@ func (d *DB) GetDashboardStats(from, to time.Time, source string) (*DashboardSta
 	s := &DashboardStats{}
 	sf, sa := sourceFilter(source)
 	args := append([]interface{}{from, to}, sa...)
-	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0), COALESCE(SUM(input_tokens+output_tokens),0)
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCost, &s.TotalTokens)
+	var cacheRead, inputTokens int64
+	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0), COALESCE(SUM(input_tokens+output_tokens),0),
+		COALESCE(SUM(cache_read_input_tokens),0), COALESCE(SUM(input_tokens),0)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCost, &s.TotalTokens, &cacheRead, &inputTokens)
 	if err != nil {
 		return nil, err
+	}
+	if inputTokens > 0 {
+		s.CacheHitRate = float64(cacheRead) / float64(inputTokens)
 	}
 	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalSessions)
 	d.db.QueryRow(`SELECT COALESCE(SUM(prompts),0) FROM sessions WHERE session_id IN

@@ -333,6 +333,46 @@ func TestGetSessions(t *testing.T) {
 	}
 }
 
+func TestGetDashboardStatsCacheHitRate(t *testing.T) {
+	db := tempDB(t)
+	ts := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	records := []*UsageRecord{
+		{Source: "claude", SessionID: "s1", Model: "model-a", InputTokens: 1000, OutputTokens: 200, CacheReadInputTokens: 600, Timestamp: ts},
+		{Source: "claude", SessionID: "s1", Model: "model-a", InputTokens: 500, OutputTokens: 100, CacheReadInputTokens: 200, Timestamp: ts.Add(time.Second)},
+	}
+	if err := db.InsertUsageBatch(records); err != nil {
+		t.Fatalf("InsertUsageBatch: %v", err)
+	}
+
+	from := ts.Add(-time.Hour)
+	to := ts.Add(time.Hour)
+	stats, err := db.GetDashboardStats(from, to, "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	// cache_read=800, input_tokens=1500 → 800/1500 ≈ 0.5333
+	expected := 800.0 / 1500.0
+	if stats.CacheHitRate < expected-0.001 || stats.CacheHitRate > expected+0.001 {
+		t.Errorf("expected CacheHitRate ~%f, got %f", expected, stats.CacheHitRate)
+	}
+}
+
+func TestGetDashboardStatsCacheHitRateZeroInput(t *testing.T) {
+	db := tempDB(t)
+	ts := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	from := ts.Add(-time.Hour)
+	to := ts.Add(time.Hour)
+	stats, err := db.GetDashboardStats(from, to, "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.CacheHitRate != 0 {
+		t.Errorf("expected CacheHitRate 0 for empty data, got %f", stats.CacheHitRate)
+	}
+}
+
 func TestFileStateUpsert(t *testing.T) {
 	db := tempDB(t)
 
