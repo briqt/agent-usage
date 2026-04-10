@@ -128,7 +128,7 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 			Model:                    msg.ModelID,
 			Timestamp:                ts,
 			Project:                  directory,
-			InputTokens:              msg.Tokens.Input,
+			InputTokens:              msg.Tokens.Input + msg.Tokens.Cache.Read + msg.Tokens.Cache.Write,
 			OutputTokens:             msg.Tokens.Output,
 			CacheReadInputTokens:     msg.Tokens.Cache.Read,
 			CacheCreationInputTokens: msg.Tokens.Cache.Write,

@@ -351,7 +351,7 @@ func TestGetDashboardStatsCacheHitRate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
-	// cache_read=800, input_tokens=1500 → 800/1500 ≈ 0.5333
+	// cache_read=800, input_tokens=1500 (includes cache), denom=1500 → 800/1500 ≈ 0.5333
 	expected := 800.0 / 1500.0
 	if stats.CacheHitRate < expected-0.001 || stats.CacheHitRate > expected+0.001 {
 		t.Errorf("expected CacheHitRate ~%f, got %f", expected, stats.CacheHitRate)
@@ -389,5 +389,98 @@ func TestFileStateUpsert(t *testing.T) {
 	}
 	if size != 200 || offset != 200 {
 		t.Errorf("expected (200,200), got (%d,%d)", size, offset)
+	}
+}
+
+func TestMigrateDeletesOpenCodeData(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	// First open: create DB and insert opencode data with wrong input_tokens
+	db, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	ts := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	rec := &UsageRecord{
+		Source: "opencode", SessionID: "oc-1", Model: "model-a",
+		InputTokens: 100, OutputTokens: 50,
+		CacheReadInputTokens: 8000, CacheCreationInputTokens: 2000,
+		Timestamp: ts,
+	}
+	if err := db.InsertUsage(rec); err != nil {
+		t.Fatalf("InsertUsage: %v", err)
+	}
+	if err := db.SetFileState("/sessions/opencode/sess.jsonl", 1024, 512); err != nil {
+		t.Fatalf("SetFileState: %v", err)
+	}
+	sess := &SessionRecord{Source: "opencode", SessionID: "oc-1", Project: "proj", StartTime: ts, Prompts: 1}
+	if err := db.UpsertSession(sess); err != nil {
+		t.Fatalf("UpsertSession: %v", err)
+	}
+	// Clear migration marker to simulate pre-migration state
+	db.db.Exec("DELETE FROM meta WHERE key LIKE 'migration_%'")
+	db.Close()
+
+	// Second open: migration should delete opencode data
+	db2, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open after migration: %v", err)
+	}
+	defer db2.Close()
+
+	from := ts.Add(-time.Hour)
+	to := ts.Add(time.Hour)
+	stats, err := db2.GetDashboardStats(from, to, "opencode")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.TotalCalls != 0 {
+		t.Errorf("expected 0 opencode records after migration, got %d", stats.TotalCalls)
+	}
+
+	size, offset, _ := db2.GetFileState("/sessions/opencode/sess.jsonl")
+	if size != 0 || offset != 0 {
+		t.Errorf("expected file_state cleared, got size=%d offset=%d", size, offset)
+	}
+}
+
+func TestMigrateIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	// First open: migration runs
+	db, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	// Insert correct opencode data (post-migration collector)
+	ts := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+	rec := &UsageRecord{
+		Source: "opencode", SessionID: "oc-2", Model: "model-a",
+		InputTokens: 10100, OutputTokens: 50,
+		CacheReadInputTokens: 8000, CacheCreationInputTokens: 2000,
+		Timestamp: ts,
+	}
+	if err := db.InsertUsage(rec); err != nil {
+		t.Fatalf("InsertUsage: %v", err)
+	}
+	db.Close()
+
+	// Second open: migration should NOT delete the new data (already marked done)
+	db2, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer db2.Close()
+
+	from := ts.Add(-time.Hour)
+	to := ts.Add(time.Hour)
+	stats, err := db2.GetDashboardStats(from, to, "opencode")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.TotalCalls != 1 {
+		t.Errorf("expected 1 opencode record preserved, got %d", stats.TotalCalls)
 	}
 }
