@@ -16,23 +16,21 @@ func TestCalcCost_Basic(t *testing.T) {
 func TestCalcCost_WithCache(t *testing.T) {
 	prices := [4]float64{0.003, 0.015, 0.001, 0.004}
 
-	// input=1000, output=500, cacheCreation=200, cacheRead=300
-	// regularInput = 1000 - 300 - 200 = 500
+	// input=500 (non-cached), output=500, cacheCreation=200, cacheRead=300
 	// cost = 500*0.003 + 200*0.004 + 300*0.001 + 500*0.015
 	//      = 1.5 + 0.8 + 0.3 + 7.5 = 10.1
-	cost := CalcCost(1000, 500, 200, 300, prices)
+	cost := CalcCost(500, 500, 200, 300, prices)
 	expected := 10.1
 	if diff := cost - expected; diff > 1e-9 || diff < -1e-9 {
 		t.Errorf("expected %f, got %f", expected, cost)
 	}
 }
 
-func TestCalcCost_NegativeRegularInput(t *testing.T) {
+func TestCalcCost_ZeroNonCachedInput(t *testing.T) {
 	prices := [4]float64{0.003, 0.015, 0.001, 0.004}
 
-	// cacheRead + cacheCreation > input → regularInput clamped to 0
-	cost := CalcCost(100, 500, 200, 300, prices)
-	// regularInput = max(100-300-200, 0) = 0
+	// All input is cached, non-cached input = 0
+	cost := CalcCost(0, 500, 200, 300, prices)
 	// cost = 0 + 200*0.004 + 300*0.001 + 500*0.015 = 0.8 + 0.3 + 7.5 = 8.6
 	expected := 8.6
 	if diff := cost - expected; diff > 1e-9 || diff < -1e-9 {
