@@ -128,11 +128,20 @@ func migrate(db *sql.DB) error {
 		id  string
 		sql string
 	}{
-		{"001_fix_opencode_input_tokens", `
-			DELETE FROM usage_records WHERE source = 'opencode';
-			DELETE FROM file_state WHERE path LIKE '%opencode%';
-			DELETE FROM sessions WHERE source = 'opencode';
-		`},
+		{
+			"001_fix_opencode_input_tokens", `
+				DELETE FROM usage_records WHERE source = 'opencode';
+				DELETE FROM file_state WHERE path LIKE '%opencode%';
+				DELETE FROM sessions WHERE source = 'opencode';
+			`,
+		},
+		{
+			"002_input_tokens_non_overlapping", `
+				DELETE FROM usage_records;
+				DELETE FROM file_state;
+				DELETE FROM sessions;
+			`,
+		},
 	}
 	for _, m := range migrations {
 		var done string

@@ -62,18 +62,14 @@ func Sync(db *storage.DB) error {
 
 // CalcCost computes the USD cost for a single API call given token counts and
 // per-token prices. The prices array is [input, output, cache_read, cache_creation].
+// input_tokens is the non-cached input only (cache tokens are separate fields).
 func CalcCost(inputTokens, outputTokens, cacheCreation, cacheRead int64, prices [4]float64) float64 {
 	inputPrice := prices[0]
 	outputPrice := prices[1]
 	cacheReadPrice := prices[2]
 	cacheCreatePrice := prices[3]
 
-	regularInput := inputTokens - cacheRead - cacheCreation
-	if regularInput < 0 {
-		regularInput = 0
-	}
-
-	cost := float64(regularInput)*inputPrice +
+	cost := float64(inputTokens)*inputPrice +
 		float64(cacheCreation)*cacheCreatePrice +
 		float64(cacheRead)*cacheReadPrice +
 		float64(outputTokens)*outputPrice

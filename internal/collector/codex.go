@@ -171,7 +171,7 @@ func (c *CodexCollector) processFile(path string) error {
 					Source:                   "codex",
 					SessionID:                sessionID,
 					Model:                    model,
-					InputTokens:              u.InputTokens,
+					InputTokens:              u.InputTokens - u.CachedInputTokens,
 					OutputTokens:             u.OutputTokens,
 					CacheReadInputTokens:     u.CachedInputTokens,
 					ReasoningOutputTokens:    u.ReasoningOutputTokens,

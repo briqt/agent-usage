@@ -48,8 +48,8 @@ func TestClaudeCollector_Scan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
-	if stats.TotalTokens != 700 {
-		t.Errorf("expected 700 tokens, got %d", stats.TotalTokens)
+	if stats.TotalTokens != 850 {
+		t.Errorf("expected 850 tokens, got %d", stats.TotalTokens)
 	}
 }
 
