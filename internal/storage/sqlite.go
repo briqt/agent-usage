@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -118,5 +119,32 @@ func migrate(db *sql.DB) error {
 		DELETE FROM usage_records WHERE model = '<synthetic>';
 		DELETE FROM usage_records WHERE model = 'delivery-mirror';
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Versioned migrations: each runs once, tracked via meta table.
+	migrations := []struct {
+		id  string
+		sql string
+	}{
+		{"001_fix_opencode_input_tokens", `
+			DELETE FROM usage_records WHERE source = 'opencode';
+			DELETE FROM file_state WHERE path LIKE '%opencode%';
+			DELETE FROM sessions WHERE source = 'opencode';
+		`},
+	}
+	for _, m := range migrations {
+		var done string
+		db.QueryRow("SELECT value FROM meta WHERE key=?", "migration_"+m.id).Scan(&done)
+		if done == "done" {
+			continue
+		}
+		if _, err := db.Exec(m.sql); err != nil {
+			return fmt.Errorf("migration %s: %w", m.id, err)
+		}
+		db.Exec(`INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
+			"migration_"+m.id, "done")
+	}
+	return nil
 }
