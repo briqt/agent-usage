@@ -142,6 +142,14 @@ func migrate(db *sql.DB) error {
 				DELETE FROM sessions;
 			`,
 		},
+		{
+			"003_codex_incremental_scan_context", `
+				DELETE FROM usage_records;
+				DELETE FROM file_state;
+				DELETE FROM sessions;
+				DELETE FROM meta WHERE key LIKE 'file_scan_context:%';
+			`,
+		},
 	}
 	for _, m := range migrations {
 		var done string
