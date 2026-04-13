@@ -2,8 +2,19 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
+
+const fileScanContextMetaPrefix = "file_scan_context:"
+
+// FileScanContext stores parser state needed to continue incremental scans.
+type FileScanContext struct {
+	SessionID string `json:"session_id"`
+	CWD       string `json:"cwd"`
+	Version   string `json:"version"`
+	Model     string `json:"model"`
+}
 
 // File state tracking
 
@@ -31,6 +42,10 @@ func (d *DB) ResetScanState() error {
 		return err
 	}
 	_, err = d.db.Exec("DELETE FROM sessions")
+	if err != nil {
+		return err
+	}
+	_, err = d.db.Exec("DELETE FROM meta WHERE key LIKE ?", fileScanContextMetaPrefix+"%")
 	return err
 }
 
@@ -48,6 +63,31 @@ func (d *DB) SetFileState(path string, size, offset int64) error {
 	_, err := d.db.Exec(`INSERT INTO file_state(path,size,last_offset) VALUES(?,?,?)
 		ON CONFLICT(path) DO UPDATE SET size=excluded.size, last_offset=excluded.last_offset`, path, size, offset)
 	return err
+}
+
+// GetFileScanContext returns persisted parser context for incremental scans.
+func (d *DB) GetFileScanContext(path string) (*FileScanContext, error) {
+	raw, err := d.GetMeta(fileScanContextMetaPrefix + path)
+	if err != nil || raw == "" {
+		return &FileScanContext{}, err
+	}
+	var ctx FileScanContext
+	if err := json.Unmarshal([]byte(raw), &ctx); err != nil {
+		return nil, err
+	}
+	return &ctx, nil
+}
+
+// SetFileScanContext stores parser context for future incremental scans.
+func (d *DB) SetFileScanContext(path string, ctx *FileScanContext) error {
+	if ctx == nil {
+		ctx = &FileScanContext{}
+	}
+	raw, err := json.Marshal(ctx)
+	if err != nil {
+		return err
+	}
+	return d.SetMeta(fileScanContextMetaPrefix+path, string(raw))
 }
 
 // Sessions

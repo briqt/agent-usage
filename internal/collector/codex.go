@@ -110,6 +110,16 @@ func (c *CodexCollector) processFile(path string) error {
 	}
 
 	var sessionID, cwd, version, model string
+	if lastOffset > 0 {
+		ctx, err := c.db.GetFileScanContext(path)
+		if err != nil {
+			return fmt.Errorf("get codex scan context: %w", err)
+		}
+		sessionID = ctx.SessionID
+		cwd = ctx.CWD
+		version = ctx.Version
+		model = ctx.Model
+	}
 	var records []*storage.UsageRecord
 	var prompts int
 	var firstTime time.Time
@@ -168,14 +178,14 @@ func (c *CodexCollector) processFile(path string) error {
 			if ep.Type == "token_count" && ep.Info != nil && ep.Info.LastTokenUsage != nil {
 				u := ep.Info.LastTokenUsage
 				rec := &storage.UsageRecord{
-					Source:                   "codex",
-					SessionID:                sessionID,
-					Model:                    model,
-					InputTokens:              u.InputTokens - u.CachedInputTokens,
-					OutputTokens:             u.OutputTokens,
-					CacheReadInputTokens:     u.CachedInputTokens,
-					ReasoningOutputTokens:    u.ReasoningOutputTokens,
-					Timestamp:                ts,
+					Source:                "codex",
+					SessionID:             sessionID,
+					Model:                 model,
+					InputTokens:           u.InputTokens - u.CachedInputTokens,
+					OutputTokens:          u.OutputTokens,
+					CacheReadInputTokens:  u.CachedInputTokens,
+					ReasoningOutputTokens: u.ReasoningOutputTokens,
+					Timestamp:             ts,
 				}
 				records = append(records, rec)
 			}
@@ -211,6 +221,15 @@ func (c *CodexCollector) processFile(path string) error {
 		if err := c.db.UpsertSession(sess); err != nil {
 			return fmt.Errorf("upsert codex session: %w", err)
 		}
+	}
+
+	if err := c.db.SetFileScanContext(path, &storage.FileScanContext{
+		SessionID: sessionID,
+		CWD:       cwd,
+		Version:   version,
+		Model:     model,
+	}); err != nil {
+		return fmt.Errorf("set codex scan context: %w", err)
 	}
 
 	return c.db.SetFileState(path, info.Size(), info.Size())
