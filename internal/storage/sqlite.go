@@ -115,7 +115,8 @@ func migrate(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS file_state (
 			path TEXT PRIMARY KEY,
 			size INTEGER DEFAULT 0,
-			last_offset INTEGER DEFAULT 0
+			last_offset INTEGER DEFAULT 0,
+			scan_context TEXT DEFAULT ''
 		);
 
 		CREATE TABLE IF NOT EXISTS pricing (
@@ -138,6 +139,9 @@ func migrate(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	// Add scan_context column to file_state for existing DBs (idempotent).
+	db.Exec("ALTER TABLE file_state ADD COLUMN scan_context TEXT DEFAULT ''")
 
 	// Versioned migrations: each runs once, tracked via meta table.
 	migrations := []struct {
@@ -167,9 +171,9 @@ func migrate(db *sql.DB) error {
 			`,
 		},
 		{
-			"004_codex_incremental_scan_context", `
-				DELETE FROM file_state;
+			"004_file_state_scan_context", `
 				DELETE FROM meta WHERE key LIKE 'file_scan_context:%';
+				DELETE FROM file_state;
 			`,
 		},
 	}

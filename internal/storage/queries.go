@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-const fileScanContextMetaPrefix = "file_scan_context:"
-
 // FileScanContext stores parser state needed to continue incremental scans.
 type FileScanContext struct {
 	SessionID string `json:"session_id"`
@@ -42,52 +40,42 @@ func (d *DB) ResetScanState() error {
 		return err
 	}
 	_, err = d.db.Exec("DELETE FROM sessions")
-	if err != nil {
-		return err
-	}
-	_, err = d.db.Exec("DELETE FROM meta WHERE key LIKE ?", fileScanContextMetaPrefix+"%")
 	return err
 }
 
-// GetFileState returns the last known size and read offset for a file path.
-func (d *DB) GetFileState(path string) (size, offset int64, err error) {
-	err = d.db.QueryRow("SELECT size, last_offset FROM file_state WHERE path=?", path).Scan(&size, &offset)
+// GetFileState returns the last known size, read offset, and parser context for a file path.
+func (d *DB) GetFileState(path string) (size, offset int64, ctx *FileScanContext, err error) {
+	var raw sql.NullString
+	err = d.db.QueryRow("SELECT size, last_offset, scan_context FROM file_state WHERE path=?", path).Scan(&size, &offset, &raw)
 	if err == sql.ErrNoRows {
-		return 0, 0, nil
+		return 0, 0, nil, nil
 	}
-	return
-}
-
-// SetFileState records the current size and read offset for a file path.
-func (d *DB) SetFileState(path string, size, offset int64) error {
-	_, err := d.db.Exec(`INSERT INTO file_state(path,size,last_offset) VALUES(?,?,?)
-		ON CONFLICT(path) DO UPDATE SET size=excluded.size, last_offset=excluded.last_offset`, path, size, offset)
-	return err
-}
-
-// GetFileScanContext returns persisted parser context for incremental scans.
-func (d *DB) GetFileScanContext(path string) (*FileScanContext, error) {
-	raw, err := d.GetMeta(fileScanContextMetaPrefix + path)
-	if err != nil || raw == "" {
-		return &FileScanContext{}, err
-	}
-	var ctx FileScanContext
-	if err := json.Unmarshal([]byte(raw), &ctx); err != nil {
-		return nil, err
-	}
-	return &ctx, nil
-}
-
-// SetFileScanContext stores parser context for future incremental scans.
-func (d *DB) SetFileScanContext(path string, ctx *FileScanContext) error {
-	if ctx == nil {
-		ctx = &FileScanContext{}
-	}
-	raw, err := json.Marshal(ctx)
 	if err != nil {
-		return err
+		return 0, 0, nil, err
 	}
-	return d.SetMeta(fileScanContextMetaPrefix+path, string(raw))
+	if raw.Valid && raw.String != "" {
+		ctx = &FileScanContext{}
+		if err := json.Unmarshal([]byte(raw.String), ctx); err != nil {
+			return size, offset, nil, nil // ignore malformed context
+		}
+	}
+	return size, offset, ctx, nil
+}
+
+// SetFileState records the current size, read offset, and optional parser context for a file path.
+func (d *DB) SetFileState(path string, size, offset int64, ctx *FileScanContext) error {
+	var raw string
+	if ctx != nil {
+		b, err := json.Marshal(ctx)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	_, err := d.db.Exec(`INSERT INTO file_state(path,size,last_offset,scan_context) VALUES(?,?,?,?)
+		ON CONFLICT(path) DO UPDATE SET size=excluded.size, last_offset=excluded.last_offset, scan_context=excluded.scan_context`,
+		path, size, offset, raw)
+	return err
 }
 
 // Sessions

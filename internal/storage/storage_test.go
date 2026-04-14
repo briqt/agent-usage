@@ -31,24 +31,27 @@ func TestOpenAndClose(t *testing.T) {
 func TestFileState(t *testing.T) {
 	db := tempDB(t)
 
-	size, offset, err := db.GetFileState("/tmp/test.jsonl")
+	size, offset, ctx, err := db.GetFileState("/tmp/test.jsonl")
 	if err != nil {
 		t.Fatalf("GetFileState: %v", err)
 	}
-	if size != 0 || offset != 0 {
-		t.Errorf("expected (0,0), got (%d,%d)", size, offset)
+	if size != 0 || offset != 0 || ctx != nil {
+		t.Errorf("expected (0,0,nil), got (%d,%d,%v)", size, offset, ctx)
 	}
 
-	if err := db.SetFileState("/tmp/test.jsonl", 1024, 512); err != nil {
+	if err := db.SetFileState("/tmp/test.jsonl", 1024, 512, nil); err != nil {
 		t.Fatalf("SetFileState: %v", err)
 	}
 
-	size, offset, err = db.GetFileState("/tmp/test.jsonl")
+	size, offset, ctx, err = db.GetFileState("/tmp/test.jsonl")
 	if err != nil {
 		t.Fatalf("GetFileState: %v", err)
 	}
 	if size != 1024 || offset != 512 {
 		t.Errorf("expected (1024,512), got (%d,%d)", size, offset)
+	}
+	if ctx != nil {
+		t.Errorf("expected nil ctx, got %v", ctx)
 	}
 }
 
@@ -390,19 +393,66 @@ func TestGetDashboardStatsCacheHitRateZeroInput(t *testing.T) {
 func TestFileStateUpsert(t *testing.T) {
 	db := tempDB(t)
 
-	if err := db.SetFileState("/tmp/a.jsonl", 100, 50); err != nil {
+	if err := db.SetFileState("/tmp/a.jsonl", 100, 50, nil); err != nil {
 		t.Fatalf("SetFileState: %v", err)
 	}
-	if err := db.SetFileState("/tmp/a.jsonl", 200, 200); err != nil {
+	if err := db.SetFileState("/tmp/a.jsonl", 200, 200, nil); err != nil {
 		t.Fatalf("SetFileState update: %v", err)
 	}
 
-	size, offset, err := db.GetFileState("/tmp/a.jsonl")
+	size, offset, _, err := db.GetFileState("/tmp/a.jsonl")
 	if err != nil {
 		t.Fatalf("GetFileState: %v", err)
 	}
 	if size != 200 || offset != 200 {
 		t.Errorf("expected (200,200), got (%d,%d)", size, offset)
+	}
+}
+
+func TestFileStateScanContext(t *testing.T) {
+	db := tempDB(t)
+
+	ctx := &FileScanContext{
+		SessionID: "sess-1",
+		CWD:       "/home/user",
+		Version:   "1.0",
+		Model:     "gpt-4",
+	}
+	if err := db.SetFileState("/tmp/test.jsonl", 1024, 512, ctx); err != nil {
+		t.Fatalf("SetFileState with context: %v", err)
+	}
+
+	size, offset, got, err := db.GetFileState("/tmp/test.jsonl")
+	if err != nil {
+		t.Fatalf("GetFileState: %v", err)
+	}
+	if size != 1024 || offset != 512 {
+		t.Errorf("expected (1024,512), got (%d,%d)", size, offset)
+	}
+	if got == nil {
+		t.Fatal("expected non-nil scan context")
+	}
+	if got.SessionID != "sess-1" || got.CWD != "/home/user" || got.Version != "1.0" || got.Model != "gpt-4" {
+		t.Errorf("unexpected context: %+v", got)
+	}
+
+	// Update with new context
+	ctx2 := &FileScanContext{SessionID: "sess-2", Model: "gpt-5"}
+	if err := db.SetFileState("/tmp/test.jsonl", 2048, 2048, ctx2); err != nil {
+		t.Fatalf("SetFileState update: %v", err)
+	}
+	_, _, got2, _ := db.GetFileState("/tmp/test.jsonl")
+	if got2 == nil || got2.SessionID != "sess-2" || got2.Model != "gpt-5" {
+		t.Errorf("expected updated context, got %+v", got2)
+	}
+
+	// Set nil context clears it
+	if err := db.SetFileState("/tmp/test.jsonl", 2048, 2048, nil); err != nil {
+		t.Fatalf("SetFileState nil ctx: %v", err)
+	}
+	_, _, got3, _ := db.GetFileState("/tmp/test.jsonl")
+	if got3 != nil {
+		t.Errorf("expected nil context after clearing, got %+v", got3)
 	}
 }
 
@@ -423,7 +473,7 @@ func TestMigrateDeletesAllData(t *testing.T) {
 	if err := db.InsertUsageBatch(records); err != nil {
 		t.Fatalf("InsertUsageBatch: %v", err)
 	}
-	db.SetFileState("/sessions/claude/test.jsonl", 1024, 512)
+	db.SetFileState("/sessions/claude/test.jsonl", 1024, 512, nil)
 	db.UpsertSession(&SessionRecord{Source: "claude", SessionID: "c-1", StartTime: ts, Prompts: 1})
 	// Clear migration markers to simulate pre-migration state
 	db.db.Exec("DELETE FROM meta WHERE key LIKE 'migration_%'")
@@ -445,7 +495,7 @@ func TestMigrateDeletesAllData(t *testing.T) {
 	if stats.TotalCalls != 0 {
 		t.Errorf("expected 0 records after migration, got %d", stats.TotalCalls)
 	}
-	size, offset, _ := db2.GetFileState("/sessions/claude/test.jsonl")
+	size, offset, _, _ := db2.GetFileState("/sessions/claude/test.jsonl")
 	if size != 0 || offset != 0 {
 		t.Errorf("expected file_state cleared, got size=%d offset=%d", size, offset)
 	}
