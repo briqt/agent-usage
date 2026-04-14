@@ -39,6 +39,7 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 
 	var sessionID, cwd string
 	var records []*storage.UsageRecord
+	var promptEvents []*storage.PromptEvent
 	var prompts int
 	var firstTime time.Time
 
@@ -82,6 +83,9 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 			case "user":
 				if !hasToolResultBlock(msg.Content) {
 					prompts++
+					promptEvents = append(promptEvents, &storage.PromptEvent{
+						Source: "openclaw", SessionID: sessionID, Timestamp: ts,
+					})
 				}
 			case "assistant":
 				if msg.Usage == nil {
@@ -116,10 +120,21 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 			r.SessionID = sessionID
 		}
 	}
+	for _, e := range promptEvents {
+		if e.SessionID == "" {
+			e.SessionID = sessionID
+		}
+	}
 
 	if len(records) > 0 {
 		if err := c.db.InsertUsageBatch(records); err != nil {
 			return fmt.Errorf("insert openclaw usage: %w", err)
+		}
+	}
+
+	if len(promptEvents) > 0 {
+		if err := c.db.InsertPromptBatch(promptEvents); err != nil {
+			return fmt.Errorf("insert openclaw prompts: %w", err)
 		}
 	}
 

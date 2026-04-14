@@ -152,21 +152,27 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 		}
 	}
 
-	// Count user prompts per session
+	// Collect user prompt events with timestamps
+	var promptEvents []*storage.PromptEvent
 	if len(sessions) > 0 {
 		promptRows, err := srcDB.Query(`
-			SELECT session_id, COUNT(*) FROM message
+			SELECT session_id, time_created FROM message
 			WHERE data LIKE '%"role":"user"%'
-			GROUP BY session_id`)
+			ORDER BY time_created`)
 		if err == nil {
 			defer promptRows.Close()
 			for promptRows.Next() {
 				var sid string
-				var count int
-				if promptRows.Scan(&sid, &count) == nil {
+				var timeCreated int64
+				if promptRows.Scan(&sid, &timeCreated) == nil {
 					if s, ok := sessions[sid]; ok {
-						s.Prompts = count
+						s.Prompts++
 					}
+					promptEvents = append(promptEvents, &storage.PromptEvent{
+						Source:    "opencode",
+						SessionID: sid,
+						Timestamp: time.UnixMilli(timeCreated),
+					})
 				}
 			}
 		}
@@ -175,6 +181,12 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 	if len(records) > 0 {
 		if err := c.db.InsertUsageBatch(records); err != nil {
 			return fmt.Errorf("insert opencode usage: %w", err)
+		}
+	}
+
+	if len(promptEvents) > 0 {
+		if err := c.db.InsertPromptBatch(promptEvents); err != nil {
+			return fmt.Errorf("insert opencode prompts: %w", err)
 		}
 	}
 

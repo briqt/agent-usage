@@ -316,6 +316,15 @@ func TestGetSessions(t *testing.T) {
 		t.Fatalf("InsertUsage: %v", err)
 	}
 
+	// Insert 2 prompt events in range
+	prompts := []*PromptEvent{
+		{Source: "claude", SessionID: "sess-1", Timestamp: ts},
+		{Source: "claude", SessionID: "sess-1", Timestamp: ts.Add(time.Minute)},
+	}
+	if err := db.InsertPromptBatch(prompts); err != nil {
+		t.Fatalf("InsertPromptBatch: %v", err)
+	}
+
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
 	sessions, err := db.GetSessions(from, to, "")
@@ -325,8 +334,8 @@ func TestGetSessions(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(sessions))
 	}
-	if sessions[0].SessionID != "sess-1" {
-		t.Errorf("expected sess-1, got %s", sessions[0].SessionID)
+	if sessions[0].Prompts != 2 {
+		t.Errorf("expected 2 prompts from prompt_events, got %d", sessions[0].Prompts)
 	}
 	if sessions[0].TotalCost != 1.5 {
 		t.Errorf("expected cost 1.5, got %f", sessions[0].TotalCost)
@@ -479,5 +488,74 @@ func TestMigrateIdempotent(t *testing.T) {
 	}
 	if stats.TotalCalls != 1 {
 		t.Errorf("expected 1 record preserved, got %d", stats.TotalCalls)
+	}
+}
+
+func TestInsertPromptBatchAndDedup(t *testing.T) {
+	db := tempDB(t)
+	ts := time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	events := []*PromptEvent{
+		{Source: "claude", SessionID: "s1", Timestamp: ts},
+		{Source: "claude", SessionID: "s1", Timestamp: ts.Add(time.Minute)},
+	}
+	if err := db.InsertPromptBatch(events); err != nil {
+		t.Fatalf("InsertPromptBatch: %v", err)
+	}
+	// Insert same events again — should be ignored (dedup)
+	if err := db.InsertPromptBatch(events); err != nil {
+		t.Fatalf("InsertPromptBatch duplicate: %v", err)
+	}
+
+	from := ts.Add(-time.Hour)
+	to := ts.Add(time.Hour)
+	var count int
+	db.db.QueryRow("SELECT COUNT(*) FROM prompt_events WHERE timestamp BETWEEN ? AND ?", from, to).Scan(&count)
+	if count != 2 {
+		t.Errorf("expected 2 prompt events after dedup, got %d", count)
+	}
+}
+
+func TestGetDashboardStatsPromptsTimeRange(t *testing.T) {
+	db := tempDB(t)
+	day1 := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+	day2 := time.Date(2025, 1, 2, 10, 0, 0, 0, time.UTC)
+
+	// Insert prompt events across two days for the same session
+	events := []*PromptEvent{
+		{Source: "claude", SessionID: "s1", Timestamp: day1},
+		{Source: "claude", SessionID: "s1", Timestamp: day1.Add(time.Hour)},
+		{Source: "claude", SessionID: "s1", Timestamp: day2},
+	}
+	if err := db.InsertPromptBatch(events); err != nil {
+		t.Fatalf("InsertPromptBatch: %v", err)
+	}
+
+	// Also insert usage records so the session shows up
+	rec := &UsageRecord{Source: "claude", SessionID: "s1", Model: "m", InputTokens: 1, Timestamp: day1}
+	db.InsertUsage(rec)
+	rec2 := &UsageRecord{Source: "claude", SessionID: "s1", Model: "m", InputTokens: 1, Timestamp: day2}
+	db.InsertUsage(rec2)
+
+	// Query day1 only — should get 2 prompts, not 3
+	from1 := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	to1 := time.Date(2025, 1, 1, 23, 59, 59, 0, time.UTC)
+	stats, err := db.GetDashboardStats(from1, to1, "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.TotalPrompts != 2 {
+		t.Errorf("expected 2 prompts for day1, got %d", stats.TotalPrompts)
+	}
+
+	// Query day2 only — should get 1 prompt
+	from2 := time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)
+	to2 := time.Date(2025, 1, 2, 23, 59, 59, 0, time.UTC)
+	stats2, err := db.GetDashboardStats(from2, to2, "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats2.TotalPrompts != 1 {
+		t.Errorf("expected 1 prompt for day2, got %d", stats2.TotalPrompts)
 	}
 }

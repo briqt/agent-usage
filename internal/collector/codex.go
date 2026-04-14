@@ -121,6 +121,7 @@ func (c *CodexCollector) processFile(path string) error {
 		model = ctx.Model
 	}
 	var records []*storage.UsageRecord
+	var promptEvents []*storage.PromptEvent
 	var prompts int
 	var firstTime time.Time
 
@@ -168,6 +169,9 @@ func (c *CodexCollector) processFile(path string) error {
 			}
 			if ri.Role == "user" && ri.Type != "function_call_output" {
 				prompts++
+				promptEvents = append(promptEvents, &storage.PromptEvent{
+					Source: "codex", SessionID: sessionID, Timestamp: ts,
+				})
 			}
 
 		case "event_msg":
@@ -202,10 +206,21 @@ func (c *CodexCollector) processFile(path string) error {
 			r.SessionID = sessionID
 		}
 	}
+	for _, e := range promptEvents {
+		if e.SessionID == "" {
+			e.SessionID = sessionID
+		}
+	}
 
 	if len(records) > 0 {
 		if err := c.db.InsertUsageBatch(records); err != nil {
 			return fmt.Errorf("insert codex usage: %w", err)
+		}
+	}
+
+	if len(promptEvents) > 0 {
+		if err := c.db.InsertPromptBatch(promptEvents); err != nil {
+			return fmt.Errorf("insert codex prompts: %w", err)
 		}
 	}
 
