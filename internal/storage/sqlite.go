@@ -45,6 +45,13 @@ type SessionRecord struct {
 	Prompts   int
 }
 
+// PromptEvent represents a single user prompt with its timestamp.
+type PromptEvent struct {
+	Source    string
+	SessionID string
+	Timestamp time.Time
+}
+
 // Open creates or opens a SQLite database at the given path, enables WAL mode,
 // and runs schema migrations.
 func Open(path string) (*DB, error) {
@@ -96,6 +103,15 @@ func migrate(db *sql.DB) error {
 			prompts INTEGER DEFAULT 0
 		);
 
+		CREATE TABLE IF NOT EXISTS prompt_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			source TEXT NOT NULL,
+			session_id TEXT NOT NULL,
+			timestamp DATETIME NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_prompt_timestamp ON prompt_events(timestamp);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_prompt_dedup ON prompt_events(session_id, timestamp);
+
 		CREATE TABLE IF NOT EXISTS file_state (
 			path TEXT PRIMARY KEY,
 			size INTEGER DEFAULT 0,
@@ -143,10 +159,16 @@ func migrate(db *sql.DB) error {
 			`,
 		},
 		{
-			"003_codex_incremental_scan_context", `
+			"003_prompt_events_rescan", `
 				DELETE FROM usage_records;
 				DELETE FROM file_state;
 				DELETE FROM sessions;
+				DELETE FROM prompt_events;
+			`,
+		},
+		{
+			"004_codex_incremental_scan_context", `
+				DELETE FROM file_state;
 				DELETE FROM meta WHERE key LIKE 'file_scan_context:%';
 			`,
 		},

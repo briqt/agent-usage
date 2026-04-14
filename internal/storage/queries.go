@@ -146,6 +146,34 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 	return tx.Commit()
 }
 
+// Prompt events
+
+// InsertPromptBatch inserts multiple prompt events in a single transaction,
+// ignoring duplicates.
+func (d *DB) InsertPromptBatch(events []*PromptEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO prompt_events(source, session_id, timestamp) VALUES(?,?,?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, e := range events {
+		if _, err := stmt.Exec(e.Source, e.SessionID, e.Timestamp); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // Pricing
 
 // UpsertPricing inserts or updates per-token pricing for a model.

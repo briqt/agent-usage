@@ -77,8 +77,7 @@ func (d *DB) GetDashboardStats(from, to time.Time, source string) (*DashboardSta
 		s.CacheHitRate = float64(cacheRead) / float64(totalInput)
 	}
 	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalSessions)
-	d.db.QueryRow(`SELECT COALESCE(SUM(prompts),0) FROM sessions WHERE session_id IN
-		(SELECT DISTINCT session_id FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`)`, args...).Scan(&s.TotalPrompts)
+	d.db.QueryRow(`SELECT COUNT(*) FROM prompt_events WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalPrompts)
 	d.db.QueryRow(`SELECT COUNT(*) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCalls)
 	return s, nil
 }
@@ -232,14 +231,20 @@ func (d *DB) GetSessionDetail(sessionID string) ([]SessionDetail, error) {
 // GetSessions returns sessions with aggregated cost and token totals within the given time range.
 func (d *DB) GetSessions(from, to time.Time, source string) ([]SessionInfo, error) {
 	sf, sa := sourceFilter(source)
-	args := append([]interface{}{from, to}, sa...)
+	baseArgs := append([]interface{}{from, to}, sa...)
+	// We need the time range args three times: for usage_records, prompt_events, and the final WHERE
+	args := append([]interface{}{}, baseArgs...)
+	args = append(args, baseArgs...)
 	rows, err := d.db.Query(`SELECT s.session_id, s.source, s.project, s.cwd, s.git_branch,
-		COALESCE(s.start_time,''), s.prompts,
+		COALESCE(s.start_time,''), COALESCE(p.prompts,0),
 		COALESCE(u.cost,0), COALESCE(u.tokens,0)
 		FROM sessions s
 		LEFT JOIN (SELECT session_id, SUM(cost_usd) as cost, SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens+output_tokens) as tokens
 			FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) u
 		ON s.session_id = u.session_id
+		LEFT JOIN (SELECT session_id, COUNT(*) as prompts
+			FROM prompt_events WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) p
+		ON s.session_id = p.session_id
 		WHERE u.session_id IS NOT NULL
 		ORDER BY s.start_time DESC`, args...)
 	if err != nil {

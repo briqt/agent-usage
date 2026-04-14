@@ -39,6 +39,7 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 
 	var sessionID, version, cwd, gitBranch string
 	var records []*storage.UsageRecord
+	var promptEvents []*storage.PromptEvent
 	var prompts int
 	var firstTime time.Time
 
@@ -76,6 +77,9 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 		case "user":
 			if isRealUserPrompt(entry.Message) {
 				prompts++
+				promptEvents = append(promptEvents, &storage.PromptEvent{
+					Source: "claude", SessionID: sessionID, Timestamp: ts,
+				})
 			}
 		case "assistant":
 			if entry.Message == nil {
@@ -129,6 +133,17 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 		}
 		if err := c.db.InsertUsageBatch(records); err != nil {
 			return fmt.Errorf("insert usage: %w", err)
+		}
+	}
+
+	if len(promptEvents) > 0 {
+		for _, e := range promptEvents {
+			if e.SessionID == "" {
+				e.SessionID = sessionID
+			}
+		}
+		if err := c.db.InsertPromptBatch(promptEvents); err != nil {
+			return fmt.Errorf("insert prompts: %w", err)
 		}
 	}
 
