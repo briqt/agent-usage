@@ -17,7 +17,7 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 	if err != nil {
 		return err
 	}
-	_, lastOffset, err := c.db.GetFileState(path)
+	_, lastOffset, scanCtx, err := c.db.GetFileState(path)
 	if err != nil {
 		return err
 	}
@@ -38,6 +38,10 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 	}
 
 	var sessionID, cwd string
+	if lastOffset > 0 && scanCtx != nil {
+		sessionID = scanCtx.SessionID
+		cwd = scanCtx.CWD
+	}
 	var records []*storage.UsageRecord
 	var promptEvents []*storage.PromptEvent
 	var prompts int
@@ -152,5 +156,8 @@ func (c *OpenClawCollector) processFile(path, agentID string) error {
 		}
 	}
 
-	return c.db.SetFileState(path, info.Size(), info.Size())
+	return c.db.SetFileState(path, info.Size(), info.Size(), &storage.FileScanContext{
+		SessionID: sessionID,
+		CWD:       cwd,
+	})
 }

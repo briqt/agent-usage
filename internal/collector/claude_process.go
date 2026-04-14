@@ -17,7 +17,7 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 	if err != nil {
 		return err
 	}
-	_, lastOffset, err := c.db.GetFileState(path)
+	_, lastOffset, _, err := c.db.GetFileState(path)
 	if err != nil {
 		return err
 	}
@@ -163,5 +163,5 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 		}
 	}
 
-	return c.db.SetFileState(path, info.Size(), info.Size())
+	return c.db.SetFileState(path, info.Size(), info.Size(), nil)
 }

@@ -89,7 +89,7 @@ func (c *CodexCollector) processFile(path string) error {
 	if err != nil {
 		return err
 	}
-	_, lastOffset, err := c.db.GetFileState(path)
+	_, lastOffset, scanCtx, err := c.db.GetFileState(path)
 	if err != nil {
 		return err
 	}
@@ -110,15 +110,11 @@ func (c *CodexCollector) processFile(path string) error {
 	}
 
 	var sessionID, cwd, version, model string
-	if lastOffset > 0 {
-		ctx, err := c.db.GetFileScanContext(path)
-		if err != nil {
-			return fmt.Errorf("get codex scan context: %w", err)
-		}
-		sessionID = ctx.SessionID
-		cwd = ctx.CWD
-		version = ctx.Version
-		model = ctx.Model
+	if lastOffset > 0 && scanCtx != nil {
+		sessionID = scanCtx.SessionID
+		cwd = scanCtx.CWD
+		version = scanCtx.Version
+		model = scanCtx.Model
 	}
 	var records []*storage.UsageRecord
 	var promptEvents []*storage.PromptEvent
@@ -238,14 +234,10 @@ func (c *CodexCollector) processFile(path string) error {
 		}
 	}
 
-	if err := c.db.SetFileScanContext(path, &storage.FileScanContext{
+	return c.db.SetFileState(path, info.Size(), info.Size(), &storage.FileScanContext{
 		SessionID: sessionID,
 		CWD:       cwd,
 		Version:   version,
 		Model:     model,
-	}); err != nil {
-		return fmt.Errorf("set codex scan context: %w", err)
-	}
-
-	return c.db.SetFileState(path, info.Size(), info.Size())
+	})
 }

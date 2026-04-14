@@ -66,7 +66,7 @@ func (c *OpenCodeCollector) Scan() error {
 
 func (c *OpenCodeCollector) processDB(dbPath string) error {
 	// Get watermark: last processed time_created (stored as offset in file_state)
-	_, lastWatermark, err := c.db.GetFileState(dbPath)
+	_, lastWatermark, _, err := c.db.GetFileState(dbPath)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 	}
 
 	if maxWatermark > lastWatermark {
-		return c.db.SetFileState(dbPath, maxWatermark, maxWatermark)
+		return c.db.SetFileState(dbPath, maxWatermark, maxWatermark, nil)
 	}
 	return nil
 }
