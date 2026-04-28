@@ -22,6 +22,7 @@ type kiroMetadata struct {
 }
 
 type kiroSessionState struct {
+	Version              string                    `json:"version"`
 	ConversationMetadata *kiroConversationMetadata `json:"conversation_metadata"`
 	RTSModelState        *kiroRTSModelState        `json:"rts_model_state"`
 }
@@ -144,6 +145,7 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 			SessionID: sessionID,
 			Project:   project,
 			CWD:       meta.CWD,
+			Version:   meta.SessionState.Version,
 			StartTime: createdAt,
 			Prompts:   len(promptEvents),
 		}
