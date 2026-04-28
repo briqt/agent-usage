@@ -18,6 +18,10 @@ collectors:
     enabled: true
     paths: ["~/.local/share/opencode/opencode.db"]
     scan_interval: 60s
+  kiro:
+    enabled: true
+    paths: ["~/.kiro/sessions/cli"]
+    scan_interval: 60s
 storage:
   path: "./agent-usage.db"
 pricing:

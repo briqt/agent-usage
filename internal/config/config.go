@@ -29,6 +29,7 @@ type CollectorConfigs struct {
 	Codex    CollectorConfig `yaml:"codex"`
 	OpenClaw CollectorConfig `yaml:"openclaw"`
 	OpenCode CollectorConfig `yaml:"opencode"`
+	Kiro     CollectorConfig `yaml:"kiro"`
 }
 
 // CollectorConfig holds settings for a single data source collector.
@@ -82,6 +83,11 @@ func DefaultConfig() *Config {
 				Paths:        []string{filepath.Join(home, ".local", "share", "opencode", "opencode.db")},
 				ScanInterval: 60 * time.Second,
 			},
+			Kiro: CollectorConfig{
+				Enabled:      true,
+				Paths:        []string{filepath.Join(home, ".kiro", "sessions", "cli")},
+				ScanInterval: 60 * time.Second,
+			},
 		},
 		Storage: StorageConfig{Path: "./agent-usage.db"},
 		Pricing: PricingConfig{SyncInterval: time.Hour},
@@ -128,6 +134,9 @@ func Load(path string) (*Config, error) {
 	}
 	for i, p := range cfg.Collectors.OpenCode.Paths {
 		cfg.Collectors.OpenCode.Paths[i] = expandPath(p)
+	}
+	for i, p := range cfg.Collectors.Kiro.Paths {
+		cfg.Collectors.Kiro.Paths[i] = expandPath(p)
 	}
 	cfg.Storage.Path = expandPath(cfg.Storage.Path)
 	return cfg, nil
