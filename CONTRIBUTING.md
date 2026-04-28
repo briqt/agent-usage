@@ -28,7 +28,7 @@ cp config.yaml config.local.yaml  # edit as needed
 ├── main.go                  # Entry point
 ├── internal/
 │   ├── config/              # YAML config loader
-│   ├── collector/           # Data source parsers (Claude Code, Codex, OpenClaw)
+│   ├── collector/           # Data source parsers (Claude Code, Codex, OpenClaw, OpenCode, Kiro)
 │   ├── pricing/             # litellm price sync + cost calculation
 │   ├── storage/             # SQLite schema, read/write, cost backfill
 │   └── server/              # HTTP server, REST API, embedded web UI
@@ -46,7 +46,7 @@ cp config.yaml config.local.yaml  # edit as needed
 3. Register the collector in `main.go`
 4. Add config fields in `internal/config/config.go`
 
-See `internal/collector/claude.go` + `claude_process.go` as the primary reference, or `openclaw.go` + `openclaw_process.go` as a second example.
+See `internal/collector/claude.go` + `claude_process.go` as the primary reference, or `openclaw.go` + `openclaw_process.go` as a second example. For a non-JSONL source (JSON metadata + JSONL prompts), see `kiro.go` + `kiro_process.go`.
 
 ## Commit Convention
 
