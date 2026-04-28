@@ -21,7 +21,7 @@ collectors:
     scan_interval: 60s
   kiro:
     enabled: true
-    paths: ["/sessions/kiro"]
+    paths: ["/sessions/kiro/cli"]
     scan_interval: 60s
 
 storage:
