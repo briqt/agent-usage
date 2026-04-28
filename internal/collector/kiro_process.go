@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/briqt/agent-usage/internal/storage"
 )
@@ -32,13 +34,15 @@ type kiroConversationMetadata struct {
 }
 
 type kiroUserTurnMetadata struct {
-	TotalRequestCount int    `json:"total_request_count"`
-	EndTimestamp      string `json:"end_timestamp"`
+	TotalRequestCount      int     `json:"total_request_count"`
+	EndTimestamp           string  `json:"end_timestamp"`
+	ContextUsagePercentage float64 `json:"context_usage_percentage"`
 }
 
 type kiroRTSModelState struct {
 	ModelInfo struct {
-		ModelName string `json:"model_name"`
+		ModelName           string `json:"model_name"`
+		ContextWindowTokens int    `json:"context_window_tokens"`
 	} `json:"model_info"`
 }
 
@@ -52,6 +56,33 @@ type kiroPromptData struct {
 	Meta struct {
 		Timestamp float64 `json:"timestamp"`
 	} `json:"meta"`
+}
+
+type kiroAssistantData struct {
+	Content []kiroContentBlock `json:"content"`
+}
+
+type kiroContentBlock struct {
+	Kind string          `json:"kind"`
+	Data json.RawMessage `json:"data"`
+}
+
+type kiroToolUseData struct {
+	Input json.RawMessage `json:"input"`
+}
+
+// estimateTokens estimates the token count for a string using a simple heuristic:
+// CJK characters ≈ 1 token each, other characters ≈ 0.25 tokens each.
+func estimateTokens(s string) int64 {
+	var cjk, other int
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) || unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hiragana, r) || unicode.Is(unicode.Hangul, r) {
+			cjk++
+		} else {
+			other++
+		}
+	}
+	return int64(math.Ceil(float64(cjk*2+other) / 4.0))
 }
 
 func (c *KiroCollector) processSession(jsonPath string) error {
@@ -90,8 +121,10 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 	}
 
 	model := ""
+	contextWindowTokens := 0
 	if meta.SessionState.RTSModelState != nil {
 		model = meta.SessionState.RTSModelState.ModelInfo.ModelName
+		contextWindowTokens = meta.SessionState.RTSModelState.ModelInfo.ContextWindowTokens
 	}
 
 	createdAt, _ := time.Parse(time.RFC3339Nano, meta.CreatedAt)
@@ -102,14 +135,20 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 		project = filepath.Base(meta.CWD)
 	}
 
-	// Parse JSONL file for prompt events.
+	// Parse JSONL file for prompt events and output token estimation.
 	jsonlPath := strings.TrimSuffix(jsonPath, ".json") + ".jsonl"
-	promptEvents := c.parsePrompts(jsonlPath, sessionID)
+	promptEvents, totalOutputTokens := c.parseJSONL(jsonlPath, sessionID)
 
 	// Create usage records from user_turn_metadatas.
 	var records []*storage.UsageRecord
 	if meta.SessionState.ConversationMetadata != nil {
-		for _, turn := range meta.SessionState.ConversationMetadata.UserTurnMetadatas {
+		turns := meta.SessionState.ConversationMetadata.UserTurnMetadatas
+		totalRequests := 0
+		for _, turn := range turns {
+			totalRequests += turn.TotalRequestCount
+		}
+
+		for i, turn := range turns {
 			if turn.TotalRequestCount == 0 {
 				continue
 			}
@@ -117,12 +156,36 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 			if ts.IsZero() {
 				ts = createdAt
 			}
+
+			// Estimate input tokens from context usage percentage.
+			var inputTokens int64
+			if contextWindowTokens > 0 && turn.ContextUsagePercentage > 0 {
+				inputTokens = int64(math.Round(turn.ContextUsagePercentage / 100.0 * float64(contextWindowTokens)))
+			}
+
+			// Distribute output tokens proportionally across turns by request count.
+			var outputTokens int64
+			if totalRequests > 0 && totalOutputTokens > 0 {
+				if i == len(turns)-1 {
+					// Last turn gets the remainder to avoid rounding loss.
+					var distributed int64
+					for _, prev := range turns[:i] {
+						distributed += int64(math.Round(float64(totalOutputTokens) * float64(prev.TotalRequestCount) / float64(totalRequests)))
+					}
+					outputTokens = totalOutputTokens - distributed
+				} else {
+					outputTokens = int64(math.Round(float64(totalOutputTokens) * float64(turn.TotalRequestCount) / float64(totalRequests)))
+				}
+			}
+
 			records = append(records, &storage.UsageRecord{
-				Source:    "kiro",
-				SessionID: sessionID,
-				Model:     model,
-				Timestamp: ts,
-				Project:   project,
+				Source:       "kiro",
+				SessionID:    sessionID,
+				Model:        model,
+				Timestamp:    ts,
+				Project:      project,
+				InputTokens:  inputTokens,
+				OutputTokens: outputTokens,
 			})
 		}
 	}
@@ -157,15 +220,17 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 	return c.db.SetFileState(jsonPath, info.Size(), info.Size(), nil)
 }
 
-// parsePrompts reads the JSONL file and extracts prompt timestamps.
-func (c *KiroCollector) parsePrompts(jsonlPath, sessionID string) []*storage.PromptEvent {
+// parseJSONL reads the JSONL file and extracts prompt timestamps and estimates
+// total output tokens from AssistantMessage content.
+func (c *KiroCollector) parseJSONL(jsonlPath, sessionID string) ([]*storage.PromptEvent, int64) {
 	f, err := os.Open(jsonlPath)
 	if err != nil {
-		return nil
+		return nil, 0
 	}
 	defer f.Close()
 
 	var events []*storage.PromptEvent
+	var totalOutputTokens int64
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024)
 
@@ -178,22 +243,41 @@ func (c *KiroCollector) parsePrompts(jsonlPath, sessionID string) []*storage.Pro
 		if err := json.Unmarshal(line, &entry); err != nil {
 			continue
 		}
-		if entry.Kind != "Prompt" {
-			continue
+		switch entry.Kind {
+		case "Prompt":
+			var pd kiroPromptData
+			if err := json.Unmarshal(entry.Data, &pd); err != nil {
+				continue
+			}
+			if pd.Meta.Timestamp == 0 {
+				continue
+			}
+			ts := time.Unix(int64(pd.Meta.Timestamp), int64((pd.Meta.Timestamp-float64(int64(pd.Meta.Timestamp)))*1e9))
+			events = append(events, &storage.PromptEvent{
+				Source:    "kiro",
+				SessionID: sessionID,
+				Timestamp: ts.UTC(),
+			})
+		case "AssistantMessage":
+			var ad kiroAssistantData
+			if err := json.Unmarshal(entry.Data, &ad); err != nil {
+				continue
+			}
+			for _, block := range ad.Content {
+				switch block.Kind {
+				case "text":
+					var text string
+					if err := json.Unmarshal(block.Data, &text); err == nil {
+						totalOutputTokens += estimateTokens(text)
+					}
+				case "toolUse":
+					var tu kiroToolUseData
+					if err := json.Unmarshal(block.Data, &tu); err == nil && tu.Input != nil {
+						totalOutputTokens += estimateTokens(string(tu.Input))
+					}
+				}
+			}
 		}
-		var pd kiroPromptData
-		if err := json.Unmarshal(entry.Data, &pd); err != nil {
-			continue
-		}
-		if pd.Meta.Timestamp == 0 {
-			continue
-		}
-		ts := time.Unix(int64(pd.Meta.Timestamp), int64((pd.Meta.Timestamp-float64(int64(pd.Meta.Timestamp)))*1e9))
-		events = append(events, &storage.PromptEvent{
-			Source:    "kiro",
-			SessionID: sessionID,
-			Timestamp: ts.UTC(),
-		})
 	}
-	return events
+	return events, totalOutputTokens
 }
