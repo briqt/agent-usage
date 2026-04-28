@@ -140,6 +140,8 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 	promptEvents, totalOutputTokens := c.parseJSONL(jsonlPath, sessionID)
 
 	// Create usage records from user_turn_metadatas.
+	// Each turn may contain multiple API requests (total_request_count).
+	// We generate one UsageRecord per request so that total_calls reflects actual API calls.
 	var records []*storage.UsageRecord
 	if meta.SessionState.ConversationMetadata != nil {
 		turns := meta.SessionState.ConversationMetadata.UserTurnMetadatas
@@ -148,6 +150,7 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 			totalRequests += turn.TotalRequestCount
 		}
 
+		var outputDistributed int64
 		for i, turn := range turns {
 			if turn.TotalRequestCount == 0 {
 				continue
@@ -164,29 +167,37 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 			}
 
 			// Distribute output tokens proportionally across turns by request count.
-			var outputTokens int64
+			var turnOutput int64
 			if totalRequests > 0 && totalOutputTokens > 0 {
 				if i == len(turns)-1 {
-					// Last turn gets the remainder to avoid rounding loss.
-					var distributed int64
-					for _, prev := range turns[:i] {
-						distributed += int64(math.Round(float64(totalOutputTokens) * float64(prev.TotalRequestCount) / float64(totalRequests)))
-					}
-					outputTokens = totalOutputTokens - distributed
+					turnOutput = totalOutputTokens - outputDistributed
 				} else {
-					outputTokens = int64(math.Round(float64(totalOutputTokens) * float64(turn.TotalRequestCount) / float64(totalRequests)))
+					turnOutput = int64(math.Round(float64(totalOutputTokens) * float64(turn.TotalRequestCount) / float64(totalRequests)))
+					outputDistributed += turnOutput
 				}
 			}
 
-			records = append(records, &storage.UsageRecord{
-				Source:       "kiro",
-				SessionID:    sessionID,
-				Model:        model,
-				Timestamp:    ts,
-				Project:      project,
-				InputTokens:  inputTokens,
-				OutputTokens: outputTokens,
-			})
+			// Generate one record per API request within this turn.
+			// Input tokens are the same for each request (full context sent each time).
+			// Output tokens are split evenly across requests.
+			reqCount := turn.TotalRequestCount
+			for r := 0; r < reqCount; r++ {
+				var outPerReq int64
+				if r == reqCount-1 {
+					outPerReq = turnOutput - (turnOutput/int64(reqCount))*int64(reqCount-1)
+				} else {
+					outPerReq = turnOutput / int64(reqCount)
+				}
+				records = append(records, &storage.UsageRecord{
+					Source:       "kiro",
+					SessionID:    sessionID,
+					Model:        model,
+					Timestamp:    ts.Add(time.Duration(r) * time.Millisecond),
+					Project:      project,
+					InputTokens:  inputTokens,
+					OutputTokens: outPerReq,
+				})
+			}
 		}
 	}
 

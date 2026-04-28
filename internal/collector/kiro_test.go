@@ -72,8 +72,8 @@ func TestKiroCollector_Scan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
-	if stats.TotalCalls != 2 {
-		t.Errorf("expected 2 API calls (usage records), got %d", stats.TotalCalls)
+	if stats.TotalCalls != 8 {
+		t.Errorf("expected 8 API calls (3+5 requests across 2 turns), got %d", stats.TotalCalls)
 	}
 	// Verify token estimation is non-zero (input from context% + output from JSONL).
 	if stats.TotalTokens == 0 {
@@ -135,9 +135,14 @@ func TestKiroCollector_TokenEstimation(t *testing.T) {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
 
-	// Input: turn0=10000, turn1=20000; Output: 3 tokens → total = 30003
-	if stats.TotalTokens != 30003 {
-		t.Errorf("expected 30003 total tokens, got %d", stats.TotalTokens)
+	// Input: turn0=10000×2reqs, turn1=20000×3reqs; Output: 3 tokens → total = 80003
+	// Each API request gets the full context as input (cumulative).
+	if stats.TotalTokens != 80003 {
+		t.Errorf("expected 80003 total tokens, got %d", stats.TotalTokens)
+	}
+
+	if stats.TotalCalls != 5 {
+		t.Errorf("expected 5 API calls (2+3 requests), got %d", stats.TotalCalls)
 	}
 }
 
