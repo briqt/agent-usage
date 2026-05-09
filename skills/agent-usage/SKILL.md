@@ -46,17 +46,18 @@ bash SKILL_DIR/scripts/query-api.sh <command> [options]
 Commands:
 | Command | Description | Key Options |
 |---------|-------------|-------------|
-| `stats` | Summary: total cost, tokens, sessions, prompts, API calls | `--from`, `--to`, `--source` |
+| `stats` | Summary: total cost, tokens, sessions, prompts, API calls | `--from`, `--to`, `--source`, `--model` |
 | `cost-by-model` | Cost breakdown per model | `--from`, `--to`, `--source` |
-| `cost-over-time` | Cost trend over time | `--from`, `--to`, `--granularity`, `--source` |
-| `tokens-over-time` | Token usage trend | `--from`, `--to`, `--granularity`, `--source` |
-| `sessions` | List all sessions with cost/tokens | `--from`, `--to`, `--source` |
+| `cost-over-time` | Cost trend over time | `--from`, `--to`, `--granularity`, `--source`, `--model` |
+| `tokens-over-time` | Token usage trend | `--from`, `--to`, `--granularity`, `--source`, `--model` |
+| `sessions` | List all sessions with cost/tokens | `--from`, `--to`, `--source`, `--model` |
 | `session-detail` | Per-model breakdown for one session | `--session-id` |
 
 Options:
 - `--from YYYY-MM-DD` — Start date (default: today)
 - `--to YYYY-MM-DD` — End date (default: today)
 - `--source claude|codex|openclaw|opencode|kiro|pi` — Filter by source (default: all)
+- `--model MODEL_NAME` — Filter by model name, e.g. `claude-sonnet-4.6` (default: all)
 - `--granularity 1m|30m|1h|6h|12h|1d|1w|1M` — Time bucket (default: 1d)
 - `--session-id ID` — Session ID for detail query
 

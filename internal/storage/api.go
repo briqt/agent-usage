@@ -13,6 +13,14 @@ func sourceFilter(source string) (string, []interface{}) {
 	return " AND source=?", []interface{}{source}
 }
 
+// modelFilter returns a SQL clause and args for optional model filtering.
+func modelFilter(model string) (string, []interface{}) {
+	if model == "" {
+		return "", nil
+	}
+	return " AND model=?", []interface{}{model}
+}
+
 // DashboardStats holds aggregate statistics for the dashboard summary cards.
 type DashboardStats struct {
 	TotalCost     float64 `json:"total_cost"`
@@ -60,25 +68,28 @@ type SessionInfo struct {
 
 // GetDashboardStats returns aggregate cost, token, session, and prompt counts
 // for usage records within the given time range.
-func (d *DB) GetDashboardStats(from, to time.Time, source string) (*DashboardStats, error) {
+func (d *DB) GetDashboardStats(from, to time.Time, source, model string) (*DashboardStats, error) {
 	s := &DashboardStats{}
 	sf, sa := sourceFilter(source)
+	mf, ma := modelFilter(model)
 	args := append([]interface{}{from, to}, sa...)
+	args = append(args, ma...)
+	filter := sf + mf
 	var cacheRead, totalInput int64
 	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens+output_tokens),0),
 		COALESCE(SUM(cache_read_input_tokens),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens),0)
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCost, &s.TotalTokens, &cacheRead, &totalInput)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalCost, &s.TotalTokens, &cacheRead, &totalInput)
 	if err != nil {
 		return nil, err
 	}
 	if totalInput > 0 {
 		s.CacheHitRate = float64(cacheRead) / float64(totalInput)
 	}
-	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalSessions)
-	d.db.QueryRow(`SELECT COUNT(*) FROM prompt_events WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalPrompts)
-	d.db.QueryRow(`SELECT COUNT(*) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf, args...).Scan(&s.TotalCalls)
+	d.db.QueryRow(`SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalSessions)
+	d.db.QueryRow(`SELECT COUNT(*) FROM prompt_events WHERE timestamp BETWEEN ? AND ?`+sf, append([]interface{}{from, to}, sa...)...).Scan(&s.TotalPrompts)
+	d.db.QueryRow(`SELECT COUNT(*) FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalCalls)
 	return s, nil
 }
 
@@ -141,12 +152,15 @@ func granularityExpr(g string, tzOffset int) string {
 }
 
 // GetCostOverTime returns cost per model grouped by the given granularity within the time range.
-func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source string, tzOffset int) ([]TimeSeriesPoint, error) {
+func (d *DB) GetCostOverTime(from, to time.Time, granularity, source, model string, tzOffset int) ([]TimeSeriesPoint, error) {
 	expr := granularityExpr(granularity, tzOffset)
 	sf, sa := sourceFilter(source)
+	mf, ma := modelFilter(model)
 	args := append([]interface{}{from, to}, sa...)
+	args = append(args, ma...)
+	filter := sf + mf
 	rows, err := d.db.Query(`SELECT `+expr+` as d, model, SUM(cost_usd) as cost
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter+`
 		GROUP BY d, model ORDER BY d`, args...)
 	if err != nil {
 		return nil, err
@@ -167,14 +181,17 @@ func (d *DB) GetCostOverTime(from, to time.Time, granularity string, source stri
 }
 
 // GetTokensOverTime returns token usage breakdown grouped by the given granularity within the time range.
-func (d *DB) GetTokensOverTime(from, to time.Time, granularity string, source string, tzOffset int) ([]TokenTimeSeriesPoint, error) {
+func (d *DB) GetTokensOverTime(from, to time.Time, granularity, source, model string, tzOffset int) ([]TokenTimeSeriesPoint, error) {
 	expr := granularityExpr(granularity, tzOffset)
 	sf, sa := sourceFilter(source)
+	mf, ma := modelFilter(model)
 	args := append([]interface{}{from, to}, sa...)
+	args = append(args, ma...)
+	filter := sf + mf
 	rows, err := d.db.Query(`SELECT `+expr+` as d,
 		SUM(input_tokens) as inp, SUM(output_tokens) as outp,
 		SUM(cache_read_input_tokens) as cr, SUM(cache_creation_input_tokens) as cc
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+`
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter+`
 		GROUP BY d ORDER BY d`, args...)
 	if err != nil {
 		return nil, err
@@ -229,18 +246,22 @@ func (d *DB) GetSessionDetail(sessionID string) ([]SessionDetail, error) {
 }
 
 // GetSessions returns sessions with aggregated cost and token totals within the given time range.
-func (d *DB) GetSessions(from, to time.Time, source string) ([]SessionInfo, error) {
+func (d *DB) GetSessions(from, to time.Time, source, model string) ([]SessionInfo, error) {
 	sf, sa := sourceFilter(source)
+	mf, ma := modelFilter(model)
+	filter := sf + mf
 	baseArgs := append([]interface{}{from, to}, sa...)
-	// We need the time range args three times: for usage_records, prompt_events, and the final WHERE
+	baseArgs = append(baseArgs, ma...)
+	// prompt_events doesn't have model column, so only apply source filter there
+	promptArgs := append([]interface{}{from, to}, sa...)
 	args := append([]interface{}{}, baseArgs...)
-	args = append(args, baseArgs...)
+	args = append(args, promptArgs...)
 	rows, err := d.db.Query(`SELECT s.session_id, s.source, s.project, s.cwd, s.git_branch,
 		COALESCE(s.start_time,''), COALESCE(p.prompts,0),
 		COALESCE(u.cost,0), COALESCE(u.tokens,0)
 		FROM sessions s
 		LEFT JOIN (SELECT session_id, SUM(cost_usd) as cost, SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens+output_tokens) as tokens
-			FROM usage_records WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) u
+			FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter+` GROUP BY session_id) u
 		ON s.session_id = u.session_id
 		LEFT JOIN (SELECT session_id, COUNT(*) as prompts
 			FROM prompt_events WHERE timestamp BETWEEN ? AND ?`+sf+` GROUP BY session_id) p

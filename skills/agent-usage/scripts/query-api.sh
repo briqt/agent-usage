@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # query-api.sh — Wrapper for agent-usage REST API
-# Usage: query-api.sh <command> [--from DATE] [--to DATE] [--source SRC] [--granularity G] [--session-id SID]
+# Usage: query-api.sh <command> [--from DATE] [--to DATE] [--source SRC] [--model M] [--granularity G] [--session-id SID]
 set -euo pipefail
 
 BASE="http://localhost:9800/api"
 CMD="${1:-stats}"; shift || true
 
-FROM="" TO="" SOURCE="" GRAN="" SID=""
+FROM="" TO="" SOURCE="" MODEL="" GRAN="" SID=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from) FROM="$2"; shift 2 ;;
     --to) TO="$2"; shift 2 ;;
     --source) SOURCE="$2"; shift 2 ;;
+    --model) MODEL="$2"; shift 2 ;;
     --granularity) GRAN="$2"; shift 2 ;;
     --session-id) SID="$2"; shift 2 ;;
     *) shift ;;
@@ -30,6 +31,7 @@ build_qs() {
   tz_offset=$(date +%z | awk '{h=substr($0,1,3)+0; m=substr($0,4,2)+0; print -(h*60+m)}')
   qs="${qs}&tz_offset=${tz_offset}"
   [[ -n "$SOURCE" ]] && qs="${qs}&source=${SOURCE}"
+  [[ -n "$MODEL" ]] && qs="${qs}&model=${MODEL}"
   [[ -n "$GRAN" ]] && qs="${qs}&granularity=${GRAN}"
   echo "$qs"
 }

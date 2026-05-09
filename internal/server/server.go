@@ -112,7 +112,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source := r.URL.Query().Get("source")
-	stats, err := s.db.GetDashboardStats(from, to, source)
+	model := r.URL.Query().Get("model")
+	stats, err := s.db.GetDashboardStats(from, to, source, model)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -143,7 +144,8 @@ func (s *Server) handleCostOverTime(w http.ResponseWriter, r *http.Request) {
 	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
-	data, err := s.db.GetCostOverTime(from, to, granularity, source, tzOffset)
+	model := r.URL.Query().Get("model")
+	data, err := s.db.GetCostOverTime(from, to, granularity, source, model, tzOffset)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -159,7 +161,8 @@ func (s *Server) handleTokensOverTime(w http.ResponseWriter, r *http.Request) {
 	}
 	granularity := r.URL.Query().Get("granularity")
 	source := r.URL.Query().Get("source")
-	data, err := s.db.GetTokensOverTime(from, to, granularity, source, tzOffset)
+	model := r.URL.Query().Get("model")
+	data, err := s.db.GetTokensOverTime(from, to, granularity, source, model, tzOffset)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -174,7 +177,8 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source := r.URL.Query().Get("source")
-	data, err := s.db.GetSessions(from, to, source)
+	model := r.URL.Query().Get("model")
+	data, err := s.db.GetSessions(from, to, source, model)
 	if err != nil {
 		serverError(w, err)
 		return

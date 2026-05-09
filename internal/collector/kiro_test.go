@@ -57,7 +57,7 @@ func TestKiroCollector_Scan(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	sessions, err := db.GetSessions(from, to, "kiro")
+	sessions, err := db.GetSessions(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestKiroCollector_Scan(t *testing.T) {
 		t.Errorf("expected 2 prompts, got %d", sessions[0].Prompts)
 	}
 
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestKiroCollector_TokenEstimation(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestKiroCollector_TokenEstimationCJK(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestKiroCollector_NullSessionState(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "kiro")
+	sessions, err := db.GetSessions(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestKiroCollector_EmptyJSONL(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestKiroCollector_IncrementalScan(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestKiroCollector_ToolUseOutputTokens(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestKiroCollector_ZeroContextPercentage(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	stats, err := db.GetDashboardStats(from, to, "kiro")
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}

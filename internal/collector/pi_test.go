@@ -33,7 +33,7 @@ func TestPiCollector_BasicScan(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestPiCollector_IncrementalScan(t *testing.T) {
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestPiCollector_EmptySession(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestPiCollector_MalformedLines(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestPiCollector_ToolResultNotCountedAsPrompt(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestPiCollector_MultipleWorkspaces(t *testing.T) {
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "pi")
+	sessions, err := db.GetSessions(from, to, "pi", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}

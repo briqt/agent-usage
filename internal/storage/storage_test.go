@@ -80,7 +80,7 @@ func TestInsertUsageAndDedup(t *testing.T) {
 	// Verify only one record exists
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to, "")
+	stats, err := db.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestInsertUsageBatch(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to, "")
+	stats, err := db.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestRecalcCosts(t *testing.T) {
 	// Verify cost was updated
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to, "")
+	stats, err := db.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestGetCostOverTime(t *testing.T) {
 
 	from := ts1.Add(-time.Hour)
 	to := ts2.Add(time.Hour)
-	result, err := db.GetCostOverTime(from, to, "1d", "", 0)
+	result, err := db.GetCostOverTime(from, to, "1d", "", "", 0)
 	if err != nil {
 		t.Fatalf("GetCostOverTime: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestGetCostOverTimeWithTimezone(t *testing.T) {
 	// UTC+8 local day: 2025-01-02 00:00 ~ 23:59 local = 2025-01-01 16:00 ~ 2025-01-02 15:59 UTC
 	from := time.Date(2025, 1, 1, 16, 0, 0, 0, time.UTC)
 	to := time.Date(2025, 1, 2, 15, 59, 59, 0, time.UTC)
-	result, err := db.GetCostOverTime(from, to, "1d", "", -480)
+	result, err := db.GetCostOverTime(from, to, "1d", "", "", -480)
 	if err != nil {
 		t.Fatalf("GetCostOverTime: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestGetSessions(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	sessions, err := db.GetSessions(from, to, "")
+	sessions, err := db.GetSessions(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetSessions: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestGetDashboardStatsCacheHitRate(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to, "")
+	stats, err := db.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -381,7 +381,7 @@ func TestGetDashboardStatsCacheHitRateZeroInput(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db.GetDashboardStats(from, to, "")
+	stats, err := db.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestMigrateDeletesAllData(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db2.GetDashboardStats(from, to, "")
+	stats, err := db2.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestMigrateIdempotent(t *testing.T) {
 
 	from := ts.Add(-time.Hour)
 	to := ts.Add(time.Hour)
-	stats, err := db2.GetDashboardStats(from, to, "")
+	stats, err := db2.GetDashboardStats(from, to, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -590,7 +590,7 @@ func TestGetDashboardStatsPromptsTimeRange(t *testing.T) {
 	// Query day1 only — should get 2 prompts, not 3
 	from1 := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	to1 := time.Date(2025, 1, 1, 23, 59, 59, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from1, to1, "")
+	stats, err := db.GetDashboardStats(from1, to1, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
@@ -601,7 +601,7 @@ func TestGetDashboardStatsPromptsTimeRange(t *testing.T) {
 	// Query day2 only — should get 1 prompt
 	from2 := time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)
 	to2 := time.Date(2025, 1, 2, 23, 59, 59, 0, time.UTC)
-	stats2, err := db.GetDashboardStats(from2, to2, "")
+	stats2, err := db.GetDashboardStats(from2, to2, "", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
