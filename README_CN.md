@@ -10,13 +10,13 @@
 
 **[English](README.md)**
 
-统一采集 Claude Code、Codex、OpenClaw、OpenCode、Kiro 等 AI 编程工具的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
+统一采集 Claude Code、Codex、OpenClaw、OpenCode、Kiro、Pi 的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
 
 ![仪表板](docs/dashboard.png)
 
 ## 特性
 
-- 📁 **本地文件解析** —— 直接读取 Claude Code、Codex CLI、OpenClaw 的会话文件、OpenCode 的 SQLite 数据库和 Kiro CLI 的会话文件
+- 📁 **本地文件解析** —— 直接读取 Claude Code、Codex CLI、OpenClaw、Pi 的会话文件、OpenCode 的 SQLite 数据库和 Kiro CLI 的会话文件
 - 💰 **自动费用计算** —— 从 [litellm](https://github.com/BerriAI/litellm) 获取模型价格，价格更新后自动回填历史记录
 - 🗄️ **SQLite 存储** —— 单文件、零运维、数据可修正
 - 📊 **Web 仪表板** —— 暗色主题 UI，ECharts 图表：费用分布、token 趋势、会话列表
@@ -34,7 +34,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects`、`~/.codex/sessions`、`~/.openclaw/agents`、`~/.local/share/opencode` 和 `~/.kiro/sessions`，数据持久化在 `./data/` 目录。
+默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects`、`~/.codex/sessions`、`~/.openclaw/agents`、`~/.local/share/opencode`、`~/.kiro/sessions` 和 `~/.pi/agent/sessions`，数据持久化在 `./data/` 目录。
 
 容器默认使用 `config.docker.yaml`（绑定 `0.0.0.0`，数据存储在 `/data/`）。如需自定义配置，挂载你自己的配置文件：
 
@@ -130,6 +130,7 @@ open http://localhost:9800
 | [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
 | [Kiro](https://kiro.dev) | `~/.kiro/sessions/cli/<会话>.json` + `.jsonl` | JSON + JSONL |
+| [Pi](https://pi.dev) | `~/.pi/agent/sessions/<工作区>/<会话>.jsonl` | JSONL |
 
 ### 添加新数据源
 
@@ -144,7 +145,7 @@ open http://localhost:9800
 
 Web 仪表板提供：
 
-- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/Kiro）、自动刷新
+- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/Kiro/Pi）、自动刷新
 - **汇总卡片** —— 总 Tokens、总费用、会话数、Prompt 数、API 调用数
 - **Token 用量** —— 堆叠柱状图（输入/输出/缓存读取/缓存写入）
 - **费用趋势** —— 按模型堆叠柱状图，颜色映射一致
@@ -171,7 +172,9 @@ agent-usage
 │   │   ├── openclaw_process.go # OpenClaw JSONL 解析
 │   │   ├── opencode.go         # OpenCode SQLite 采集器
 │   │   ├── kiro.go             # Kiro CLI 会话扫描
-│   │   └── kiro_process.go     # Kiro CLI JSON + JSONL 解析
+│   │   ├── kiro_process.go     # Kiro CLI JSON + JSONL 解析
+│   │   ├── pi.go               # Pi coding agent 会话扫描
+│   │   └── pi_process.go       # Pi coding agent JSONL 解析
 │   ├── pricing/                # litellm 价格获取 + 计费公式
 │   ├── storage/
 │   │   ├── sqlite.go           # 数据库初始化 + 迁移
@@ -243,15 +246,6 @@ docker build -t agent-usage:local .
 # 中国大陆用户，使用 GOPROXY 加速：
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local .
 ```
-
-## 路线图
-
-- [ ] 更多 agent 数据源（Cursor、Copilot、OpenCode 等）
-- [ ] OTLP HTTP 接收端，支持实时遥测
-- [ ] 系统服务管理（systemd / launchd / Windows Service）
-- [ ] 导出 CSV/JSON
-- [ ] 告警（费用阈值）
-- [ ] 多用户支持
 
 ## 社区
 
