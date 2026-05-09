@@ -22,6 +22,10 @@ collectors:
     enabled: true
     paths: ["~/.kiro/sessions/cli"]
     scan_interval: 60s
+  pi:
+    enabled: true
+    paths: ["~/.pi/agent/sessions"]
+    scan_interval: 60s
 storage:
   path: "./agent-usage.db"
 pricing:
