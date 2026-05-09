@@ -258,6 +258,53 @@ def scan_openclaw(base_paths, from_dt, to_dt):
     return records
 
 
+def scan_pi(base_paths, from_dt, to_dt):
+    """Parse Pi coding agent JSONL files (same format as OpenClaw)."""
+    records = []
+    for base in base_paths:
+        base = Path(base).expanduser()
+        if not base.exists():
+            continue
+        for f in base.rglob("*.jsonl"):
+            try:
+                project = f.parent.name
+                session_id = f.stem
+                for line in open(f, "r", errors="replace"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if entry.get("type") == "session":
+                        session_id = entry.get("id", session_id)
+                        cwd = entry.get("cwd", "")
+                        if cwd:
+                            project = Path(cwd).name
+                        continue
+                    if entry.get("type") != "message":
+                        continue
+                    msg = entry.get("message", {}) or {}
+                    if msg.get("role") != "assistant" or not msg.get("usage"):
+                        continue
+                    usage = msg["usage"]
+                    ts = parse_timestamp(entry.get("timestamp", ""))
+                    if not ts or not (from_dt <= ts.date() <= to_dt):
+                        continue
+                    records.append({
+                        "source": "pi", "model": msg.get("model", ""),
+                        "timestamp": ts, "project": project, "session_id": session_id,
+                        "input": usage.get("input", 0) or 0,
+                        "output": usage.get("output", 0) or 0,
+                        "cache_read": usage.get("cacheRead", 0) or 0,
+                        "cache_create": usage.get("cacheWrite", 0) or 0,
+                    })
+            except Exception:
+                continue
+    return records
+
+
 def scan_opencode(db_paths, from_dt, to_dt):
     """Parse OpenCode SQLite database."""
     import sqlite3
@@ -312,6 +359,7 @@ DEFAULT_PATHS = {
     "codex": ["~/.codex/sessions"],
     "openclaw": ["~/.openclaw/agents"],
     "opencode": ["~/.local/share/opencode/opencode.db"],
+    "pi": ["~/.pi/agent/sessions"],
 }
 
 def collect(from_dt, to_dt, source=None):
@@ -324,6 +372,8 @@ def collect(from_dt, to_dt, source=None):
         records += scan_openclaw(DEFAULT_PATHS["openclaw"], from_dt, to_dt)
     if source in (None, "", "opencode"):
         records += scan_opencode(DEFAULT_PATHS["opencode"], from_dt, to_dt)
+    if source in (None, "", "pi"):
+        records += scan_pi(DEFAULT_PATHS["pi"], from_dt, to_dt)
     return records
 
 

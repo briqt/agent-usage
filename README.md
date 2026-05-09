@@ -10,7 +10,7 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, Kiro, and Pi, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
+Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, Kiro CLI, and Pi, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
 ![Dashboard](docs/dashboard.png)
 
@@ -129,7 +129,7 @@ open http://localhost:9800
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<year>/<month>/<day>/<session>.jsonl` | JSONL |
 | [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
-| [Kiro](https://kiro.dev) | `~/.kiro/sessions/cli/<session>.json` + `.jsonl` | JSON + JSONL |
+| [Kiro CLI](https://kiro.dev) | `~/.kiro/sessions/cli/<session>.json` + `.jsonl` | JSON + JSONL |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<workspace>/<session>.jsonl` | JSONL |
 
 ### Adding New Sources
@@ -145,7 +145,7 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/Kiro/Pi), auto-refresh
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/Kiro CLI/Pi), auto-refresh
 - **Summary cards** — total tokens, cost, sessions, prompts, API calls
 - **Token usage** — stacked bar chart (input/output/cache read/cache write)
 - **Cost trend** — stacked bar chart by model with consistent color mapping
@@ -202,7 +202,7 @@ When prices update, historical records are automatically backfilled.
 
 ## API Endpoints
 
-All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`) to filter by agent, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
+All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`, `pi`) to filter by agent, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
 
 | Endpoint | Description |
 |----------|-------------|

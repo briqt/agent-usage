@@ -10,7 +10,7 @@
 
 **[English](README.md)**
 
-统一采集 Claude Code、Codex、OpenClaw、OpenCode、Kiro、Pi 的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
+统一采集 Claude Code、Codex、OpenClaw、OpenCode、Kiro CLI、Pi 的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
 
 ![仪表板](docs/dashboard.png)
 
@@ -129,7 +129,7 @@ open http://localhost:9800
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<年>/<月>/<日>/<会话>.jsonl` | JSONL |
 | [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
-| [Kiro](https://kiro.dev) | `~/.kiro/sessions/cli/<会话>.json` + `.jsonl` | JSON + JSONL |
+| [Kiro CLI](https://kiro.dev) | `~/.kiro/sessions/cli/<会话>.json` + `.jsonl` | JSON + JSONL |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<工作区>/<会话>.jsonl` | JSONL |
 
 ### 添加新数据源
@@ -145,7 +145,7 @@ open http://localhost:9800
 
 Web 仪表板提供：
 
-- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/Kiro/Pi）、自动刷新
+- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/Kiro CLI/Pi）、自动刷新
 - **汇总卡片** —— 总 Tokens、总费用、会话数、Prompt 数、API 调用数
 - **Token 用量** —— 堆叠柱状图（输入/输出/缓存读取/缓存写入）
 - **费用趋势** —— 按模型堆叠柱状图，颜色映射一致
@@ -202,7 +202,7 @@ agent-usage
 
 ## API 接口
 
-所有接口支持 `from` 和 `to`（YYYY-MM-DD）查询参数。可选：`source`（`claude`、`codex`、`openclaw`、`opencode`、`kiro`）按来源筛选，`granularity`（`1m`、`30m`、`1h`、`6h`、`12h`、`1d`、`1w`、`1M`）用于时序接口。
+所有接口支持 `from` 和 `to`（YYYY-MM-DD）查询参数。可选：`source`（`claude`、`codex`、`openclaw`、`opencode`、`kiro`、`pi`）按来源筛选，`granularity`（`1m`、`30m`、`1h`、`6h`、`12h`、`1d`、`1w`、`1M`）用于时序接口。
 
 | 接口 | 说明 |
 |------|------|
