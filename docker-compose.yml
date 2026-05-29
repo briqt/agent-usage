@@ -17,13 +17,16 @@ services:
     volumes:
       # Persistent database
       - ./data:/data
-      # Host session directories (read-only)
+      # Host session directories (read-only).
+      # Only uncomment the agents you have installed — Docker will create missing
+      # directories as root, which can cause permission errors for other tools
+      # (e.g. `npx skills add` uses directory existence to detect installed agents).
       - ~/.claude/projects:/sessions/claude:ro
-      - ~/.codex/sessions:/sessions/codex:ro
-      - ~/.openclaw/agents:/sessions/openclaw:ro
-      - ~/.local/share/opencode:/sessions/opencode:ro
-      - ~/.kiro/sessions:/sessions/kiro:ro
-      - ~/.pi/agent/sessions:/sessions/pi:ro
+      # - ~/.codex/sessions:/sessions/codex:ro
+      # - ~/.openclaw/agents:/sessions/openclaw:ro
+      # - ~/.local/share/opencode:/sessions/opencode:ro
+      # - ~/.kiro/sessions:/sessions/kiro:ro
+      # - ~/.pi/agent/sessions:/sessions/pi:ro
       # Optional: custom config override
       - ./config.docker.yaml:/etc/agent-usage/config.yaml:ro
 

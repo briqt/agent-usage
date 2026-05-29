@@ -34,7 +34,9 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 以只读方式挂载 `~/.claude/projects`、`~/.codex/sessions`、`~/.openclaw/agents`、`~/.local/share/opencode`、`~/.kiro/sessions` 和 `~/.pi/agent/sessions`，数据持久化在 `./data/` 目录。
+默认 `docker-compose.yml` 仅以只读方式挂载 `~/.claude/projects`。如需统计其他 agent（Codex、OpenClaw、OpenCode、Kiro、Pi），请在 `docker-compose.yml` 中取消对应 volume 的注释。数据持久化在 `./data/` 目录。
+
+> **注意：** 只启用你实际安装的 agent 的挂载。Docker 会以 root 身份自动创建不存在的宿主机目录，这会干扰 `npx skills add` 等通过目录是否存在来检测已安装 agent 的工具。
 
 容器默认使用 `config.docker.yaml`（绑定 `0.0.0.0`，数据存储在 `/data/`）。如需自定义配置，挂载你自己的配置文件：
 
