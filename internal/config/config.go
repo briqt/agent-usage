@@ -85,8 +85,11 @@ func DefaultConfig() *Config {
 				ScanInterval: 60 * time.Second,
 			},
 			Kiro: CollectorConfig{
-				Enabled:      true,
-				Paths:        []string{filepath.Join(home, ".local", "share", "kiro-cli", "data.sqlite3")},
+				Enabled: true,
+				Paths: []string{
+					filepath.Join(home, ".local", "share", "kiro-cli", "data.sqlite3"),
+					filepath.Join(home, ".kiro", "sessions", "cli"),
+				},
 				ScanInterval: 60 * time.Second,
 			},
 			Pi: CollectorConfig{

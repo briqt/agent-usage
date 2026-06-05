@@ -136,3 +136,12 @@ User: "Token usage trend this week by hour"
 - Local mode pricing is approximate — only common models have built-in prices
 - For accurate pricing, deploy the agent-usage server: https://github.com/briqt/agent-usage
 - Local mode scans `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents`, `~/.local/share/opencode/opencode.db`, `~/.pi/agent/sessions` by default
+- Kiro has two data sources: SQLite (`~/.local/share/kiro-cli/data.sqlite3`) and JSON sessions (`~/.kiro/sessions/cli/`). Both are scanned when configured.
+
+## Docker Deployment Warning
+
+When using Docker, only mount volume paths for agents you have actually installed. Docker will auto-create missing host directories as root, causing:
+1. Agent detection tools (e.g. `npx skills add`, Kiro CLI) falsely detect the agent as installed
+2. The root-owned directory prevents the real agent from writing session data when later installed
+
+Only uncomment volume mounts in `docker-compose.yml` for agents whose data directories already exist on your host.

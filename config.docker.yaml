@@ -21,7 +21,9 @@ collectors:
     scan_interval: 60s
   kiro:
     enabled: true
-    paths: ["/sessions/kiro-cli/data.sqlite3"]
+    paths:
+      - "/sessions/kiro-cli/data.sqlite3"
+      - "/sessions/kiro-sessions"
     scan_interval: 60s
 
 storage:

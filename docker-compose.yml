@@ -26,6 +26,7 @@ services:
       # - ~/.openclaw/agents:/sessions/openclaw:ro
       # - ~/.local/share/opencode:/sessions/opencode:ro
       # - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro
+      # - ~/.kiro/sessions/cli:/sessions/kiro-sessions:ro
       # - ~/.pi/agent/sessions:/sessions/pi:ro
       # Optional: custom config override
       - ./config.docker.yaml:/etc/agent-usage/config.yaml:ro

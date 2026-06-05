@@ -11,6 +11,10 @@ services:
       - NO_PROXY=localhost,127.0.0.1
     volumes:
       - ./data:/data
+      # WARNING: Only mount directories that exist on the host. Docker will auto-create
+      # missing host directories as root, which breaks agent tools that rely on directory
+      # presence/absence for detection (e.g. Kiro CLI, `npx skills add`).
       - ~/.claude/projects:/sessions/claude:ro
       - ~/.codex/sessions:/sessions/codex:ro
       - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro
+      - ~/.kiro/sessions/cli:/sessions/kiro-sessions:ro

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- Kiro collector now supports dual data sources: SQLite database (`~/.local/share/kiro-cli/data.sqlite3`) and JSON/JSONL session files (`~/.kiro/sessions/cli/`). Both are scanned simultaneously with auto-detection based on path type.
+
+### Changed
+- Default Kiro config paths now include both data sources.
+- Docker Compose examples include volume mount for `~/.kiro/sessions/cli`.
+
 ## [1.10.1] - 2026-06-05
 
 ### Changed
