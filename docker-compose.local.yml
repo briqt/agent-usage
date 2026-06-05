@@ -6,10 +6,11 @@ services:
     user: "1000:1000"
     network_mode: host
     environment:
-      - HTTP_PROXY=http://127.0.0.1:3067
-      - HTTPS_PROXY=http://127.0.0.1:3067
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
       - NO_PROXY=localhost,127.0.0.1
     volumes:
       - ./data:/data
       - ~/.claude/projects:/sessions/claude:ro
       - ~/.codex/sessions:/sessions/codex:ro
+      - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro

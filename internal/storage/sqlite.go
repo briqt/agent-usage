@@ -176,6 +176,14 @@ func migrate(db *sql.DB) error {
 				DELETE FROM file_state;
 			`,
 		},
+		{
+			"005_kiro_sqlite_only_rescan", `
+				DELETE FROM usage_records WHERE source = 'kiro';
+				DELETE FROM prompt_events WHERE source = 'kiro';
+				DELETE FROM sessions WHERE source = 'kiro';
+				DELETE FROM file_state WHERE path LIKE '%kiro%';
+			`,
+		},
 	}
 	for _, m := range migrations {
 		var done string

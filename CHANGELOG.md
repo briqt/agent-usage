@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-06-05
+
+### Changed
+- kiro collection now uses `~/.local/share/kiro-cli/data.sqlite3` / `/sessions/kiro-cli/data.sqlite3` as the default and documented data source.
+- Docker Compose examples now only mount existing agent data directories explicitly, with kiro using the SQLite data directory.
+
+### Fixed
+- Count kiro API calls from `conversations_v2.history[].request_metadata` so non-interactive kiro usage is included.
+- Preserve concurrent same-millisecond kiro requests by deriving record timestamps from `request_id`.
+- Reset old kiro scan state and usage records once so legacy JSON/JSONL counts do not mix with the new SQLite-only counts.
+- Standardize user-facing source labels to `kiro`.
+
 ## [1.0.1] - 2026-04-07
 
 ### Changed

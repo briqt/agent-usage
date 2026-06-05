@@ -1,313 +1,159 @@
 package collector
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
-func TestKiroCollector_Scan(t *testing.T) {
-	db := tempDB(t)
+func createKiroSQLite(t *testing.T, sqlitePath string) {
+	t.Helper()
 
-	dir := t.TempDir()
+	src, err := sql.Open("sqlite", sqlitePath)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { src.Close() })
 
-	metaJSON := `{
-		"session_id": "kiro-sess-001",
-		"cwd": "/home/user/myproject",
-		"created_at": "2026-04-28T06:56:23.608Z",
-		"title": "test session",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 3,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 7.247
-					},
-					{
-						"total_request_count": 5,
-						"end_timestamp": "2026-04-28T07:10:00.000Z",
-						"context_usage_percentage": 7.2911
-					}
-				]
+	_, err = src.Exec(`
+		CREATE TABLE conversations_v2 (
+			key TEXT NOT NULL,
+			conversation_id TEXT NOT NULL,
+			value TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			PRIMARY KEY (key, conversation_id)
+		)`)
+	if err != nil {
+		t.Fatalf("create conversations_v2: %v", err)
+	}
+
+	value := `{
+		"conversation_id": "conv-sqlite",
+		"model_info": {
+			"model_name": "claude-opus-4.6",
+			"model_id": "claude-opus-4.6",
+			"context_window_tokens": 1000000
+		},
+		"history": [
+			{
+				"request_metadata": {
+					"request_id": "req-1",
+					"request_start_timestamp_ms": 1780462801000,
+					"context_usage_percentage": 1.5,
+					"user_prompt_length": 80,
+					"response_size": 120,
+					"model_id": "claude-opus-4.6"
+				}
 			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 200000
+			{
+				"request_metadata": {
+					"request_id": "req-2",
+					"request_start_timestamp_ms": 1780462801000,
+					"context_usage_percentage": 2.0,
+					"user_prompt_length": 100,
+					"response_size": 160,
+					"model_id": "claude-opus-4.6"
+				}
+			},
+			{
+				"request_metadata": {
+					"request_id": "req-3",
+					"request_start_timestamp_ms": 1780462801000,
+					"context_usage_percentage": 0,
+					"user_prompt_length": 40,
+					"response_size": 40,
+					"model_id": "claude-opus-4.6"
 				}
 			}
-		}
+		]
 	}`
-
-	jsonlContent := `{"version":"v1","kind":"Prompt","data":{"meta":{"timestamp":1745823383},"content":[{"kind":"text","data":"hello"}]}}
-{"version":"v1","kind":"AssistantMessage","data":{"content":[{"kind":"text","data":"hi there"}]}}
-{"version":"v1","kind":"Prompt","data":{"meta":{"timestamp":1745823400},"content":[{"kind":"text","data":"help me"}]}}
-`
-
-	os.WriteFile(filepath.Join(dir, "kiro-sess-001.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-sess-001.jsonl"), []byte(jsonlContent), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	sessions, err := db.GetSessions(from, to, "kiro", "")
+	_, err = src.Exec(`INSERT INTO conversations_v2(key, conversation_id, value, created_at, updated_at)
+		VALUES(?,?,?,?,?)`, "/tmp/sqlite-proj", "conv-sqlite", value, int64(1780462800000), int64(1780462805000))
 	if err != nil {
-		t.Fatalf("GetSessions: %v", err)
-	}
-	if len(sessions) != 1 {
-		t.Fatalf("expected 1 session, got %d", len(sessions))
-	}
-	if sessions[0].Prompts != 2 {
-		t.Errorf("expected 2 prompts, got %d", sessions[0].Prompts)
-	}
-
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-	if stats.TotalCalls != 8 {
-		t.Errorf("expected 8 API calls (3+5 requests across 2 turns), got %d", stats.TotalCalls)
-	}
-	// Verify token estimation is non-zero (input from context% + output from JSONL).
-	if stats.TotalTokens == 0 {
-		t.Errorf("expected non-zero total tokens from estimation")
+		t.Fatalf("insert conversation: %v", err)
 	}
 }
 
-func TestKiroCollector_TokenEstimation(t *testing.T) {
+func TestKiroCollector_SQLiteConversationsV2(t *testing.T) {
 	db := tempDB(t)
 	dir := t.TempDir()
+	sqlitePath := filepath.Join(dir, "data.sqlite3")
+	createKiroSQLite(t, sqlitePath)
 
-	// Turn 0: 10% of 100000 = 10000 input tokens, 2 requests
-	// Turn 1: 20% of 100000 = 20000 input tokens, 3 requests
-	metaJSON := `{
-		"session_id": "kiro-tokens",
-		"cwd": "/tmp/proj",
-		"created_at": "2026-04-28T06:00:00.000Z",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 2,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 10.0
-					},
-					{
-						"total_request_count": 3,
-						"end_timestamp": "2026-04-28T08:00:00.000Z",
-						"context_usage_percentage": 20.0
-					}
-				]
-			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 100000
-				}
-			}
-		}
-	}`
-
-	// "hello world" = 11 chars, all western → ceil(11/4) = 3 tokens
-	jsonlContent := `{"version":"v1","kind":"AssistantMessage","data":{"content":[{"kind":"text","data":"hello world"}]}}
-`
-
-	os.WriteFile(filepath.Join(dir, "kiro-tokens.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-tokens.jsonl"), []byte(jsonlContent), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-
-	// Input: turn0=10000×2reqs, turn1=20000×3reqs; Output: 3 tokens → total = 80003
-	// Each API request gets the full context as input (cumulative).
-	if stats.TotalTokens != 80003 {
-		t.Errorf("expected 80003 total tokens, got %d", stats.TotalTokens)
-	}
-
-	if stats.TotalCalls != 5 {
-		t.Errorf("expected 5 API calls (2+3 requests), got %d", stats.TotalCalls)
-	}
-}
-
-func TestKiroCollector_TokenEstimationCJK(t *testing.T) {
-	db := tempDB(t)
-	dir := t.TempDir()
-
-	metaJSON := `{
-		"session_id": "kiro-cjk",
-		"cwd": "/tmp/proj",
-		"created_at": "2026-04-28T06:00:00.000Z",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 1,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 5.0
-					}
-				]
-			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 200000
-				}
-			}
-		}
-	}`
-
-	// "你好世界" = 4 CJK chars → ceil((4*2)/4) = 2 tokens
-	jsonlContent := `{"version":"v1","kind":"AssistantMessage","data":{"content":[{"kind":"text","data":"你好世界"}]}}
-`
-
-	os.WriteFile(filepath.Join(dir, "kiro-cjk.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-cjk.jsonl"), []byte(jsonlContent), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-
-	// Input: 5% of 200000 = 10000; Output: 2 → total = 10002
-	if stats.TotalTokens != 10002 {
-		t.Errorf("expected 10002 total tokens, got %d", stats.TotalTokens)
-	}
-}
-
-func TestKiroCollector_NullSessionState(t *testing.T) {
-	db := tempDB(t)
-
-	dir := t.TempDir()
-
-	metaJSON := `{
-		"session_id": "kiro-subagent",
-		"cwd": "/tmp",
-		"created_at": "2026-04-28T06:56:23.608Z",
-		"session_state": null
-	}`
-
-	os.WriteFile(filepath.Join(dir, "kiro-subagent.json"), []byte(metaJSON), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	sessions, err := db.GetSessions(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetSessions: %v", err)
-	}
-	if len(sessions) != 0 {
-		t.Errorf("expected 0 sessions for null session_state, got %d", len(sessions))
-	}
-}
-
-func TestKiroCollector_EmptyJSONL(t *testing.T) {
-	db := tempDB(t)
-
-	dir := t.TempDir()
-
-	metaJSON := `{
-		"session_id": "kiro-empty",
-		"cwd": "/tmp",
-		"created_at": "2026-04-28T06:56:23.608Z",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 1,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 5.0
-					}
-				]
-			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 200000
-				}
-			}
-		}
-	}`
-
-	os.WriteFile(filepath.Join(dir, "kiro-empty.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-empty.jsonl"), []byte(""), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-	if stats.TotalCalls != 1 {
-		t.Errorf("expected 1 call, got %d", stats.TotalCalls)
-	}
-	// 5% of 200000 = 10000 input, 0 output → 10000 total
-	if stats.TotalTokens != 10000 {
-		t.Errorf("expected 10000 total tokens, got %d", stats.TotalTokens)
-	}
-}
-
-func TestKiroCollector_IncrementalScan(t *testing.T) {
-	db := tempDB(t)
-
-	dir := t.TempDir()
-
-	metaV1 := `{"session_id":"kiro-inc","cwd":"/tmp","created_at":"2026-04-28T06:56:23.608Z","session_state":{"conversation_metadata":{"user_turn_metadatas":[{"total_request_count":1,"end_timestamp":"2026-04-28T07:00:00.000Z","context_usage_percentage":5.0}]},"rts_model_state":{"model_info":{"model_name":"claude-sonnet-4-20250514","context_window_tokens":200000}}}}`
-
-	os.WriteFile(filepath.Join(dir, "kiro-inc.json"), []byte(metaV1), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-inc.jsonl"), []byte(""), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
+	kc := NewKiroCollector(db, []string{sqlitePath})
 	if err := kc.Scan(); err != nil {
 		t.Fatalf("Scan 1: %v", err)
 	}
-
-	// Second scan with same file — should be skipped.
 	if err := kc.Scan(); err != nil {
 		t.Fatalf("Scan 2: %v", err)
 	}
 
 	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+
 	stats, err := db.GetDashboardStats(from, to, "kiro", "")
 	if err != nil {
 		t.Fatalf("GetDashboardStats: %v", err)
 	}
-	if stats.TotalCalls != 1 {
-		t.Errorf("expected 1 call (no duplicates), got %d", stats.TotalCalls)
+	if stats.TotalCalls != 3 {
+		t.Errorf("expected 3 API calls from same-millisecond request_id values, got %d", stats.TotalCalls)
+	}
+	if stats.TotalPrompts != 3 {
+		t.Errorf("expected 3 prompt events, got %d", stats.TotalPrompts)
+	}
+	if stats.TotalSessions != 1 {
+		t.Errorf("expected 1 session, got %d", stats.TotalSessions)
+	}
+	if stats.TotalTokens == 0 {
+		t.Errorf("expected non-zero token estimate")
+	}
+}
+
+func TestKiroCollector_SQLiteDirectoryPath(t *testing.T) {
+	db := tempDB(t)
+	dir := t.TempDir()
+	createKiroSQLite(t, filepath.Join(dir, "data.sqlite3"))
+
+	kc := NewKiroCollector(db, []string{dir})
+	if err := kc.Scan(); err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.TotalCalls != 3 {
+		t.Errorf("expected 3 API calls, got %d", stats.TotalCalls)
+	}
+}
+
+func TestKiroCollector_IgnoresLegacyJSONDirectory(t *testing.T) {
+	db := tempDB(t)
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "legacy.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatalf("write legacy json: %v", err)
+	}
+
+	kc := NewKiroCollector(db, []string{dir})
+	if err := kc.Scan(); err != nil {
+		t.Fatalf("Scan: %v", err)
+	}
+
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	stats, err := db.GetDashboardStats(from, to, "kiro", "")
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+	if stats.TotalCalls != 0 {
+		t.Errorf("expected 0 calls from legacy JSON directory, got %d", stats.TotalCalls)
 	}
 }
 
@@ -316,143 +162,5 @@ func TestKiroCollector_MissingPath(t *testing.T) {
 	kc := NewKiroCollector(db, []string{"/nonexistent/path"})
 	if err := kc.Scan(); err != nil {
 		t.Fatalf("Scan: %v", err)
-	}
-}
-
-func TestKiroCollector_IgnoresNonJSON(t *testing.T) {
-	db := tempDB(t)
-
-	dir := t.TempDir()
-
-	// Create a .lock file and a subdirectory — both should be ignored.
-	os.WriteFile(filepath.Join(dir, "something.lock"), []byte("lock"), 0o644)
-	os.MkdirAll(filepath.Join(dir, "tasks"), 0o755)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-}
-
-func TestEstimateTokens(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected int64
-	}{
-		{"", 0},
-		{"hello world", 3},  // 11 western chars → ceil(11/4) = 3
-		{"你好世界", 2},         // 4 CJK → ceil(8/4) = 2
-		{"hello你好", 3},      // 5 western + 2 CJK → ceil((4+5)/4) = 3
-		{"a", 1},            // 1 western → ceil(1/4) = 1
-		{"abcd", 1},         // 4 western → ceil(4/4) = 1
-		{"abcde", 2},        // 5 western → ceil(5/4) = 2
-	}
-	for _, tt := range tests {
-		got := estimateTokens(tt.input)
-		if got != tt.expected {
-			t.Errorf("estimateTokens(%q) = %d, want %d", tt.input, got, tt.expected)
-		}
-	}
-}
-
-func TestKiroCollector_ToolUseOutputTokens(t *testing.T) {
-	db := tempDB(t)
-	dir := t.TempDir()
-
-	metaJSON := `{
-		"session_id": "kiro-tooluse",
-		"cwd": "/tmp/proj",
-		"created_at": "2026-04-28T06:00:00.000Z",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 1,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 1.0
-					}
-				]
-			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 100000
-				}
-			}
-		}
-	}`
-
-	// toolUse input: {"path":"/tmp/file.txt"} = 22 chars → ceil(22/4) = 6 tokens
-	jsonlContent := `{"version":"v1","kind":"AssistantMessage","data":{"content":[{"kind":"toolUse","data":{"toolUseId":"t1","name":"read","input":{"path":"/tmp/file.txt"}}}]}}
-`
-
-	os.WriteFile(filepath.Join(dir, "kiro-tooluse.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-tooluse.jsonl"), []byte(jsonlContent), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-
-	// 1% of 100000 = 1000 input + some output from toolUse
-	if stats.TotalTokens <= 1000 {
-		t.Errorf("expected tokens > 1000 (input + toolUse output), got %d", stats.TotalTokens)
-	}
-}
-
-func TestKiroCollector_ZeroContextPercentage(t *testing.T) {
-	db := tempDB(t)
-	dir := t.TempDir()
-
-	metaJSON := `{
-		"session_id": "kiro-zero",
-		"cwd": "/tmp/proj",
-		"created_at": "2026-04-28T06:00:00.000Z",
-		"session_state": {
-			"conversation_metadata": {
-				"user_turn_metadatas": [
-					{
-						"total_request_count": 1,
-						"end_timestamp": "2026-04-28T07:00:00.000Z",
-						"context_usage_percentage": 0
-					}
-				]
-			},
-			"rts_model_state": {
-				"model_info": {
-					"model_name": "claude-sonnet-4-20250514",
-					"context_window_tokens": 200000
-				}
-			}
-		}
-	}`
-
-	os.WriteFile(filepath.Join(dir, "kiro-zero.json"), []byte(metaJSON), 0o644)
-	os.WriteFile(filepath.Join(dir, "kiro-zero.jsonl"), []byte(""), 0o644)
-
-	kc := NewKiroCollector(db, []string{dir})
-	if err := kc.Scan(); err != nil {
-		t.Fatalf("Scan: %v", err)
-	}
-
-	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	stats, err := db.GetDashboardStats(from, to, "kiro", "")
-	if err != nil {
-		t.Fatalf("GetDashboardStats: %v", err)
-	}
-
-	// 0% context → 0 input, no JSONL → 0 output
-	if stats.TotalTokens != 0 {
-		t.Errorf("expected 0 total tokens for zero context percentage, got %d", stats.TotalTokens)
 	}
 }

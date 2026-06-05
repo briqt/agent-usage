@@ -10,13 +10,13 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, Kiro CLI, and Pi, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
+Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, kiro, and Pi, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
 ![Dashboard](docs/dashboard.png)
 
 ## Features
 
-- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi session files, OpenCode SQLite database, and Kiro CLI session files directly
+- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi session files, OpenCode SQLite database, and kiro session/database files directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
 - 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
@@ -34,7 +34,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` only mounts `~/.claude/projects` read-only. Uncomment additional volume mounts in `docker-compose.yml` for each agent you have installed (Codex, OpenClaw, OpenCode, Kiro, Pi). Data persists in `./data/`.
+The default `docker-compose.yml` only mounts `~/.claude/projects` read-only. Uncomment additional volume mounts in `docker-compose.yml` for each agent you have installed (Codex, OpenClaw, OpenCode, kiro, Pi). Data persists in `./data/`.
 
 > **Note:** Only enable mounts for agents you actually use. Docker creates missing host directories as root, which can interfere with tools like `npx skills add` that detect installed agents by directory existence.
 
@@ -53,7 +53,7 @@ See [Docker Details](#docker-details) for UID/GID permissions and local builds.
 The skill works standalone — no need to install or run the agent-usage server. It parses local JSONL session files directly. If the agent-usage server is detected, it automatically switches to API queries for more accurate cost data.
 
 ```bash
-# Installed via vercel-labs/skills, supports Claude Code, Cursor, Kiro, and 40+ agents
+# Installed via vercel-labs/skills, supports Claude Code, Cursor, kiro, and 40+ agents
 npx skills add briqt/agent-usage -y
 ```
 
@@ -90,7 +90,7 @@ collectors:
   kiro:
     enabled: true
     paths:
-      - "~/.kiro/sessions/cli"
+      - "~/.local/share/kiro-cli/data.sqlite3"
     scan_interval: 60s
 
 storage:
@@ -131,7 +131,7 @@ open http://localhost:9800
 | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/<year>/<month>/<day>/<session>.jsonl` | JSONL |
 | [OpenClaw](https://github.com/openclaw/openclaw) | `~/.openclaw/agents/<agentId>/sessions/<sessionId>.jsonl` | JSONL |
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
-| [Kiro CLI](https://kiro.dev) | `~/.kiro/sessions/cli/<session>.json` + `.jsonl` | JSON + JSONL |
+| [kiro](https://kiro.dev) | `~/.local/share/kiro-cli/data.sqlite3` | SQLite |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<workspace>/<session>.jsonl` | JSONL |
 
 ### Adding New Sources
@@ -147,7 +147,7 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/Kiro CLI/Pi), auto-refresh
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/kiro/Pi), auto-refresh
 - **Summary cards** — total tokens, cost, sessions, prompts, API calls
 - **Token usage** — stacked bar chart (input/output/cache read/cache write)
 - **Cost trend** — stacked bar chart by model with consistent color mapping
@@ -173,8 +173,8 @@ agent-usage
 │   │   ├── openclaw.go         # OpenClaw session scanner
 │   │   ├── openclaw_process.go # OpenClaw JSONL parser
 │   │   ├── opencode.go         # OpenCode SQLite collector
-│   │   ├── kiro.go             # Kiro CLI session scanner
-│   │   ├── kiro_process.go     # Kiro CLI JSON + JSONL parser
+│   │   ├── kiro.go             # kiro scanner
+│   │   ├── kiro_process.go     # kiro SQLite parser
 │   │   ├── pi.go               # Pi coding agent session scanner
 │   │   └── pi_process.go       # Pi coding agent JSONL parser
 │   ├── pricing/                # litellm price fetcher + cost formula

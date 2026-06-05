@@ -20,7 +20,7 @@ collectors:
     scan_interval: 60s
   kiro:
     enabled: true
-    paths: ["~/.kiro/sessions/cli"]
+    paths: ["~/.local/share/kiro-cli/data.sqlite3"]
     scan_interval: 60s
   pi:
     enabled: true

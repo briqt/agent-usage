@@ -11,10 +11,10 @@ import (
 
 // Config holds the top-level application configuration.
 type Config struct {
-	Server  ServerConfig  `yaml:"server"`
+	Server     ServerConfig     `yaml:"server"`
 	Collectors CollectorConfigs `yaml:"collectors"`
-	Storage StorageConfig `yaml:"storage"`
-	Pricing PricingConfig `yaml:"pricing"`
+	Storage    StorageConfig    `yaml:"storage"`
+	Pricing    PricingConfig    `yaml:"pricing"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -86,7 +86,7 @@ func DefaultConfig() *Config {
 			},
 			Kiro: CollectorConfig{
 				Enabled:      true,
-				Paths:        []string{filepath.Join(home, ".kiro", "sessions", "cli")},
+				Paths:        []string{filepath.Join(home, ".local", "share", "kiro-cli", "data.sqlite3")},
 				ScanInterval: 60 * time.Second,
 			},
 			Pi: CollectorConfig{

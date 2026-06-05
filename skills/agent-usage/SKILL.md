@@ -1,11 +1,11 @@
 ---
 name: agent-usage
-description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, Kiro CLI, and Pi. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
+description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, and Pi. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
 ---
 
 # agent-usage — AI Coding Agent Usage Query
 
-Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, Kiro CLI, and Pi.
+Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, and Pi.
 
 ## When to Use
 
