@@ -1,11 +1,11 @@
 ---
 name: agent-usage
-description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, and Pi. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
+description: "Query AI coding agent usage, costs, and token consumption. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, Pi, and Hermes Agent. Ask about spending, token usage, model costs, session history, API call counts. Actions: check usage, show cost, compare models, list sessions, analyze spending, token breakdown. Time ranges: today, this week, this month, this year, last N days, custom dates."
 ---
 
 # agent-usage — AI Coding Agent Usage Query
 
-Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, and Pi.
+Query your AI coding agent usage data directly in conversation. Supports Claude Code, Codex CLI, OpenClaw, OpenCode, kiro, Pi, and Hermes Agent.
 
 ## When to Use
 
@@ -56,7 +56,7 @@ Commands:
 Options:
 - `--from YYYY-MM-DD` — Start date (default: today)
 - `--to YYYY-MM-DD` — End date (default: today)
-- `--source claude|codex|openclaw|opencode|kiro|pi` — Filter by source (default: all)
+- `--source claude|codex|openclaw|opencode|kiro|pi|hermes` — Filter by source (default: all)
 - `--model MODEL_NAME` — Filter by model name, e.g. `claude-sonnet-4.6` (default: all)
 - `--granularity 1m|30m|1h|6h|12h|1d|1w|1M` — Time bucket (default: 1d)
 - `--session-id ID` — Session ID for detail query
@@ -115,6 +115,7 @@ Calculate actual YYYY-MM-DD dates before passing to scripts.
 | opencode | opencode |
 | kiro | kiro |
 | pi | pi |
+| hermes / hermes agent | hermes |
 | all / everything / total | (omit --source) |
 
 ## Examples
@@ -136,6 +137,7 @@ User: "Token usage trend this week by hour"
 - Local mode pricing is approximate — only common models have built-in prices
 - For accurate pricing, deploy the agent-usage server: https://github.com/briqt/agent-usage
 - Local mode scans `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents`, `~/.local/share/opencode/opencode.db`, `~/.pi/agent/sessions` by default
+- Hermes Agent data is read from SQLite databases at `~/.hermes/state.db` and `~/.hermes/profiles/*/state.db`. Supports multiple profiles automatically.
 - Kiro has two data sources: SQLite (`~/.local/share/kiro-cli/data.sqlite3`) and JSON sessions (`~/.kiro/sessions/cli/`). Both are scanned when configured.
 
 ## Docker Deployment Warning

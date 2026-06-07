@@ -25,6 +25,10 @@ collectors:
       - "/sessions/kiro-cli/data.sqlite3"
       - "/sessions/kiro-sessions"
     scan_interval: 60s
+  hermes:
+    enabled: true
+    paths: ["/sessions/hermes"]
+    scan_interval: 60s
 
 storage:
   path: "/data/agent-usage.db"

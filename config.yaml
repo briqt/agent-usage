@@ -28,6 +28,10 @@ collectors:
     enabled: true
     paths: ["~/.pi/agent/sessions"]
     scan_interval: 60s
+  hermes:
+    enabled: true
+    paths: ["~/.hermes"]
+    scan_interval: 60s
 storage:
   path: "./agent-usage.db"
 pricing:

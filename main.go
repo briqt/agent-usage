@@ -73,6 +73,7 @@ func main() {
 		{"OpenCode", collector.NewOpenCodeCollector(db, cfg.Collectors.OpenCode.Paths), cfg.Collectors.OpenCode},
 		{"kiro", collector.NewKiroCollector(db, cfg.Collectors.Kiro.Paths), cfg.Collectors.Kiro},
 		{"Pi", collector.NewPiCollector(db, cfg.Collectors.Pi.Paths), cfg.Collectors.Pi},
+		{"Hermes", collector.NewHermesCollector(db, cfg.Collectors.Hermes.Paths), cfg.Collectors.Hermes},
 	}
 	for _, ce := range collectors {
 		if !ce.cfg.Enabled {

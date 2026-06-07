@@ -10,13 +10,13 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, kiro, and Pi, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
+Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, and Hermes Agent, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
 ![Dashboard](docs/dashboard.png)
 
 ## Features
 
-- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi session files, OpenCode SQLite database, and kiro session/database files directly
+- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi session files, OpenCode SQLite database, kiro session/database files, and Hermes Agent state databases directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
 - 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
@@ -34,9 +34,9 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` only mounts `~/.claude/projects` read-only. Uncomment additional volume mounts in `docker-compose.yml` for each agent you have installed (Codex, OpenClaw, OpenCode, kiro, Pi). Data persists in `./data/`.
+The default `docker-compose.yml` does not mount any agent data directories. Uncomment the volume mounts for each agent you have installed (Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, Hermes). Data persists in `./data/`.
 
-> **Note:** Only enable mounts for agents you actually use. Docker creates missing host directories as root, which can interfere with tools like `npx skills add` that detect installed agents by directory existence.
+> **Note:** Only enable mounts for agents you actually have installed. Docker creates missing host directories as root, which can interfere with tools like `npx skills add` that detect installed agents by directory existence.
 
 The container uses `config.docker.yaml` by default (binds to `0.0.0.0`, stores data in `/data/`). To override, mount your own config:
 
@@ -92,6 +92,11 @@ collectors:
     paths:
       - "~/.local/share/kiro-cli/data.sqlite3"
     scan_interval: 60s
+  hermes:
+    enabled: true
+    paths:
+      - "~/.hermes"
+    scan_interval: 60s
 
 storage:
   path: "./agent-usage.db"
@@ -133,6 +138,7 @@ open http://localhost:9800
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
 | [kiro](https://kiro.dev) | `~/.local/share/kiro-cli/data.sqlite3` | SQLite |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<workspace>/<session>.jsonl` | JSONL |
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `~/.hermes/state.db` + `~/.hermes/profiles/*/state.db` | SQLite |
 
 ### Adding New Sources
 
@@ -147,7 +153,7 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/kiro/Pi), auto-refresh
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/kiro/Pi/Hermes), auto-refresh
 - **Summary cards** — total tokens, cost, sessions, prompts, API calls
 - **Token usage** — stacked bar chart (input/output/cache read/cache write)
 - **Cost trend** — stacked bar chart by model with consistent color mapping
@@ -176,7 +182,9 @@ agent-usage
 │   │   ├── kiro.go             # kiro scanner
 │   │   ├── kiro_process.go     # kiro SQLite parser
 │   │   ├── pi.go               # Pi coding agent session scanner
-│   │   └── pi_process.go       # Pi coding agent JSONL parser
+│   │   ├── pi_process.go       # Pi coding agent JSONL parser
+│   │   ├── hermes.go           # Hermes Agent state.db scanner
+│   │   └── hermes_process.go   # Hermes Agent SQLite parser
 │   ├── pricing/                # litellm price fetcher + cost formula
 │   ├── storage/
 │   │   ├── sqlite.go           # DB init + migrations

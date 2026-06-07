@@ -33,6 +33,28 @@ func (d *DB) SetMeta(key, value string) error {
 	return err
 }
 
+// DeleteBySource removes all usage_records, sessions, and prompt_events for a given source.
+// Used by collectors that do full-replace on each scan (e.g. Hermes).
+func (d *DB) DeleteBySource(source string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM usage_records WHERE source=?", source); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM sessions WHERE source=?", source); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("DELETE FROM prompt_events WHERE source=?", source); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // ResetScanState clears file_state and sessions tables to force a full re-scan.
 func (d *DB) ResetScanState() error {
 	_, err := d.db.Exec("DELETE FROM file_state")

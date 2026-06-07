@@ -21,12 +21,13 @@ services:
       # Only uncomment the agents you have installed — Docker will create missing
       # directories as root, which can cause permission errors for other tools
       # (e.g. `npx skills add` uses directory existence to detect installed agents).
-      - ~/.claude/projects:/sessions/claude:ro
+      # - ~/.claude/projects:/sessions/claude:ro
       # - ~/.codex/sessions:/sessions/codex:ro
       # - ~/.openclaw/agents:/sessions/openclaw:ro
       # - ~/.local/share/opencode:/sessions/opencode:ro
       # - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro
       # - ~/.kiro/sessions/cli:/sessions/kiro-sessions:ro
       # - ~/.pi/agent/sessions:/sessions/pi:ro
+      # - ~/.hermes:/sessions/hermes:ro
       # Optional: custom config override
       - ./config.docker.yaml:/etc/agent-usage/config.yaml:ro
