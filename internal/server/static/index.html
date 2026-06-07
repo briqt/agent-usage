@@ -6,7 +6,11 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%233b82f6'/></svg>">
 <title>agent-usage — AI Coding Agent Usage</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" id="flatpickr-dark-theme">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
 <style>
 /* ── Modern CSS Variables & Theme ── */
 :root, [data-theme="dark"] {
@@ -52,10 +56,10 @@ body {
 .top-bar-header h1 .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); }
 .top-bar-header h1 span { color: var(--text); }
 .top-bar-header h1 .sub { display: none; }
-.top-bar-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+.top-bar-controls { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex: 1; overflow-x: auto; }
 select, input[type=date], input[type=text], .ctrl-btn {
   background: var(--select-bg); border: 1px solid var(--border); color: var(--text);
-  padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; outline: none;
+  padding: 5px 10px; border-radius: 8px; font-size: 13px; cursor: pointer; outline: none;
   transition: all 0.2s; font-family: inherit;
 }
 input[type=text] { cursor: text; }
@@ -64,9 +68,9 @@ select:hover, input[type=date]:hover, input[type=text]:hover, .ctrl-btn:hover { 
 select:focus, input[type=date]:focus, input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
 select option { background: var(--select-bg); color: var(--text); }
 
-.preset-bar { display: flex; background: var(--select-bg); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.preset-bar { display: flex; background: var(--select-bg); border: 1px solid var(--border); border-radius: 8px; padding: 2px; overflow-x: auto; flex-shrink: 1; min-width: 0; }
 .preset-btn {
-  background: transparent; border: none; color: var(--muted); padding: 6px 12px;
+  background: transparent; border: none; color: var(--muted); padding: 5px 8px;
   border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
 }
 .preset-btn:hover { color: var(--text); }
@@ -230,6 +234,10 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 @keyframes load-pulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
 
 /* Responsive */
+@media (max-width: 1400px) {
+  .ctrl-actions { margin-left: 0; }
+  .preset-bar { overflow-x: auto; flex-shrink: 1; min-width: 0; }
+}
 @media (max-width: 1024px) {
   .charts { grid-template-columns: 1fr; }
   .charts .chart-card { grid-column: 1 / -1 !important; }
@@ -237,7 +245,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (max-width: 768px) {
   .top-bar-header { flex-direction: column; align-items: stretch; }
-  .top-bar-controls { flex-direction: column; align-items: stretch; }
+  .top-bar-controls { flex-direction: column; align-items: stretch; flex-wrap: wrap; overflow-x: visible; }
   .ctrl-actions { margin-left: 0; }
   .preset-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
   .separator { display: none; }
@@ -254,7 +262,7 @@ td:nth-child(2) { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
       <div class="top-bar-controls">
         <div class="preset-bar" id="preset-bar"></div>
         <div style="display:flex; gap:8px; align-items:center;" id="custom-range-wrap">
-          <input type="date" id="from"> <span style="color:var(--muted)" data-i18n="to">-</span> <input type="date" id="to">
+          <input type="text" id="date-range" readonly style="width:210px; cursor:pointer;">
         </div>
         <div class="separator"></div>
         <select id="sel-granularity"></select>

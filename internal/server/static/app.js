@@ -35,7 +35,7 @@ const I18N = {
     light: 'Light', dark: 'Dark', system: 'System', autoOn: 'Auto ✓', autoOff: 'Auto',
     input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreate: 'Cache Write',
     gran_1m: '1 min', gran_30m: '30 min', gran_1h: '1 hour', gran_6h: '6 hours', gran_12h: '12 hours', gran_1d: '1 day', gran_1w: '1 week', gran_1M: '1 month',
-    model: 'Model', calls: 'Calls', allSources: 'All Sources', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi',
+    model: 'Model', calls: 'Calls', allSources: 'All Sources', allModels: 'All Models', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi',
     filterProject: 'Filter by project...', justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago',
     noSessions: 'No sessions found in this period.', unitMin: 'min', unitSec: 'sec'
   },
@@ -50,14 +50,14 @@ const I18N = {
     light: '浅色', dark: '深色', system: '跟随系统', autoOn: '自动 ✓', autoOff: '自动',
     input: '输入', output: '输出', cacheRead: '缓存读取', cacheCreate: '缓存写入',
     gran_1m: '1 分钟', gran_30m: '30 分钟', gran_1h: '1 小时', gran_6h: '6 小时', gran_12h: '12 小时', gran_1d: '1 天', gran_1w: '1 周', gran_1M: '1 个月',
-    model: '模型', calls: '调用次数', allSources: '全部来源', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi',
+    model: '模型', calls: '调用次数', allSources: '全部来源', allModels: '全部模型', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi',
     filterProject: '按项目筛选...', justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前',
     noSessions: '当前时间段内暂无会话数据。', unitMin: '分钟', unitSec: '秒'
   }
 };
 
 // ── State ──
-const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899'];
+const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#a855f7', '#eab308', '#64748b', '#0ea5e9', '#d946ef', '#84cc16', '#f43f5e'];
 const PRESETS = ['today', 'thisWeek', 'thisMonth', 'thisYear', 'last3d', 'last7d', 'last30d', 'custom'];
 const GRANULARITIES = ['1m', '30m', '1h', '6h', '12h', '1d', '1w', '1M'];
 const REFRESH_INTERVALS = [30, 60, 300, 1800, 3600];
@@ -91,6 +91,8 @@ function applyTheme() {
   const th = state.theme === 'system' ? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light') : state.theme;
   document.documentElement.setAttribute('data-theme', th);
   document.documentElement.style.colorScheme = th;
+  const fpDark = document.getElementById('flatpickr-dark-theme');
+  if (fpDark) fpDark.disabled = (th !== 'dark');
   Object.values(charts).forEach(c => c && c.resize());
 }
 
@@ -132,6 +134,21 @@ function getTimeRange() {
   }
 }
 
+let errorTimer = null;
+function showError(msg) {
+  let el = $('error-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'error-toast';
+    el.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--orange);color:var(--orange);padding:10px 20px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:var(--shadow);transition:opacity 0.3s;';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(errorTimer);
+  errorTimer = setTimeout(() => { el.style.opacity = '0'; }, 5000);
+}
+
 async function api(path, opts) {
   const r = getTimeRange();
   let q = [`from=${r.from}`, `to=${r.to}`];
@@ -140,6 +157,11 @@ async function api(path, opts) {
   if (state.model && !(opts && opts.skipModel)) q.push(`model=${encodeURIComponent(state.model)}`);
   q.push(`tz_offset=${new Date().getTimezoneOffset()}`);
   const res = await fetch(`/api/${path}?${q.join('&')}`);
+  if (!res.ok) {
+    let msg = `${path}: ${res.status}`;
+    try { const body = await res.json(); if (body.error) msg = body.error; } catch {}
+    throw new Error(msg);
+  }
   return res.json();
 }
 
@@ -243,7 +265,16 @@ async function refresh() {
       tooltip: {
         ...baseOpt().tooltip, trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        valueFormatter: v => fmtCost(v)
+        formatter: params => {
+          let total = 0;
+          const lines = params.filter(p => p.value > 0).sort((a, b) => b.value - a.value).map(p => {
+            total += p.value;
+            return `${p.marker} ${esc(p.seriesName)}: ${fmtCost(p.value)}`;
+          });
+          if (lines.length === 0) return '';
+          return `<div style="font-weight:600;margin-bottom:4px">${esc(params[0].axisValue)}</div>`
+            + lines.join('<br>') + `<br><b style="margin-top:4px;display:inline-block">Total: ${fmtCost(total)}</b>`;
+        }
       },
       legend: {
         type: 'scroll', top: 0, left: 'center',
@@ -263,7 +294,19 @@ async function refresh() {
     charts.tokens.setOption({
       ...baseOpt(), grid: { ...baseOpt().grid, top: 50 }, dataZoom: dataZoomOpts,
       graphic: tokenDates.length === 0 ? emptyGraphic(t('noSessions')) : { type: 'text', style: { text: '' } },
-      tooltip: { ...baseOpt().tooltip, axisPointer: { type: 'shadow' } },
+      tooltip: {
+        ...baseOpt().tooltip, axisPointer: { type: 'shadow' },
+        formatter: params => {
+          const total = params.reduce((s, p) => s + (p.value || 0), 0);
+          if (total === 0) return '';
+          const header = `<div style="font-weight:600;margin-bottom:4px">${esc(params[0].axisValue)}</div>`;
+          const lines = params.filter(p => p.value > 0).map(p => {
+            const pct = ((p.value / total) * 100).toFixed(1);
+            return `${p.marker} ${esc(p.seriesName)}: ${fmt(p.value)} (${pct}%)`;
+          });
+          return header + `<b>Total: ${fmt(total)}</b><br>` + lines.join('<br>');
+        }
+      },
       legend: {
         type: 'scroll', top: 0, left: 'center',
         textStyle: { color: tc.muted, fontSize: 11 },
@@ -284,6 +327,9 @@ async function refresh() {
     allSessions = sessions || [];
     renderSessionTable();
 
+  } catch (e) {
+    console.error('refresh failed:', e);
+    showError(e.message || 'Failed to load data');
   } finally {
     isFetching = false;
     $('btn-refresh').classList.remove('loading');
@@ -322,9 +368,12 @@ function renderSessionTable() {
 
   const k = sessionSort.key, dir = sessionSort.dir === 'asc' ? 1 : -1;
   const sorted = filtered.sort((a, b) => {
-    let va = a[k] || '', vb = b[k] || '';
-    if (typeof va === 'number' || typeof vb === 'number') return ((va || 0) - (vb || 0)) * dir;
-    return String(va).toLowerCase() < String(vb).toLowerCase() ? -dir : 1 * dir;
+    let va = a[k], vb = b[k];
+    if (va == null) va = ''; if (vb == null) vb = '';
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+    const sa = String(va).toLowerCase(), sb = String(vb).toLowerCase();
+    if (sa === sb) return 0;
+    return sa < sb ? -dir : dir;
   });
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
@@ -470,6 +519,59 @@ function applyAutoRefresh() {
   }
 }
 
+// ── Date Picker ──
+let fpInstance = null;
+function initDatePicker() {
+  const el = $('date-range');
+  if (!el) return;
+  if (fpInstance) fpInstance.destroy();
+  const today = localDateStr(new Date());
+  const from = state.customFrom || today;
+  const to = state.customTo || today;
+  fpInstance = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: state.lang === 'zh' ? 'zh' : 'default',
+    defaultDate: state.preset === 'custom' ? [from, to] : [],
+    onChange: (dates) => {
+      if (dates.length === 2) {
+        persist('customFrom', localDateStr(dates[0]));
+        persist('customTo', localDateStr(dates[1]));
+        persist('preset', 'custom');
+        $('custom-range-wrap').style.display = 'flex';
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        const customBtn = document.querySelector('[data-preset="custom"]');
+        if (customBtn) customBtn.classList.add('active');
+        refresh();
+      }
+    },
+    onReady: (_, __, fp) => {
+      fp.calendarContainer.addEventListener('dblclick', (e) => {
+        const dayEl = e.target.closest('.flatpickr-day');
+        if (dayEl && !dayEl.classList.contains('flatpickr-disabled')) {
+          const d = localDateStr(dayEl.dateObj);
+          persist('customFrom', d);
+          persist('customTo', d);
+          persist('preset', 'custom');
+          fp.setDate([d, d], true);
+          fp.close();
+          $('custom-range-wrap').style.display = 'flex';
+          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+          const customBtn = document.querySelector('[data-preset="custom"]');
+          if (customBtn) customBtn.classList.add('active');
+          refresh();
+        }
+      });
+    }
+  });
+  if (state.preset === 'custom') {
+    el.value = from === to ? from : `${from} to ${to}`;
+  } else {
+    el.value = '';
+    el.placeholder = t('custom');
+  }
+}
+
 // ── Init Setup ──
 function buildControls() {
   document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
@@ -488,28 +590,26 @@ function buildControls() {
   bar.innerHTML = PRESETS.map(p => `<button class="preset-btn ${state.preset === p ? 'active' : ''}" data-preset="${p}">${t(p)}</button>`).join('');
 
   $('custom-range-wrap').style.display = state.preset === 'custom' ? 'flex' : 'none';
-  if (state.preset === 'custom') {
-    $('from').value = state.customFrom || localDateStr(new Date());
-    $('to').value = state.customTo || localDateStr(new Date());
-  }
+  initDatePicker();
   $('filter-project').placeholder = t('filterProject');
 }
 
 // ── Events Binding ──
-$('sel-theme').onchange = e => { persist('theme', e.target.value); applyTheme(); };
+$('sel-theme').onchange = e => { persist('theme', e.target.value); applyTheme(); refresh(); };
 $('sel-lang').onchange = e => { persist('lang', e.target.value); buildControls(); refresh(); applyAutoRefresh(); };
 $('sel-granularity').onchange = e => { persist('granularity', e.target.value); refresh(); };
 $('sel-refresh-interval').onchange = e => { persist('refreshInterval', parseInt(e.target.value)); applyAutoRefresh(); };
 
+const PRESET_GRANULARITY = { today: '1h', thisWeek: '6h', thisMonth: '1d', thisYear: '1w', last3d: '6h', last7d: '6h', last30d: '1d' };
+
 $('preset-bar').onclick = e => {
   if (e.target.classList.contains('preset-btn')) {
-    persist('preset', e.target.dataset.preset);
+    const p = e.target.dataset.preset;
+    persist('preset', p);
+    if (PRESET_GRANULARITY[p]) persist('granularity', PRESET_GRANULARITY[p]);
     buildControls(); refresh(); applyAutoRefresh();
   }
 };
-$('from').onchange = e => { persist('customFrom', e.target.value); refresh(); };
-$('to').onchange = e => { persist('customTo', e.target.value); refresh(); };
-
 $('btn-refresh').onclick = () => { refresh(); applyAutoRefresh(); };
 $('btn-auto-refresh').onclick = () => { persist('autoRefresh', !state.autoRefresh); applyAutoRefresh(); };
 
@@ -522,7 +622,7 @@ function updateModelFilter(costModel) {
   const sel = $('filter-model');
   const prev = state.model;
   if (prev && !models.includes(prev)) { persist('model', ''); }
-  sel.innerHTML = `<option value="">All Models</option>` + models.map(m =>
+  sel.innerHTML = `<option value="">${t('allModels')}</option>` + models.map(m =>
     `<option value="${m}" ${state.model === m ? 'selected' : ''}>${m}</option>`
   ).join('');
 }
