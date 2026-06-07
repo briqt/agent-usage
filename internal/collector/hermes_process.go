@@ -29,7 +29,8 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 			COALESCE(output_tokens, 0),
 			COALESCE(cache_read_tokens, 0),
 			COALESCE(cache_write_tokens, 0),
-			COALESCE(reasoning_tokens, 0)
+			COALESCE(reasoning_tokens, 0),
+			COALESCE(api_call_count, 1)
 		FROM sessions
 		WHERE model IS NOT NULL
 			AND TRIM(model) != ''
@@ -55,9 +56,10 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 			cacheRead  int64
 			cacheWrite int64
 			reasoning  int64
+			apiCalls   int
 		)
 		if err := rows.Scan(&sessionID, &model, &startedAt,
-			&input, &output, &cacheRead, &cacheWrite, &reasoning); err != nil {
+			&input, &output, &cacheRead, &cacheWrite, &reasoning, &apiCalls); err != nil {
 			continue
 		}
 
@@ -74,6 +76,7 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 			CacheReadInputTokens:     cacheRead,
 			CacheCreationInputTokens: cacheWrite,
 			ReasoningOutputTokens:    reasoning,
+			APICalls:                 apiCalls,
 		})
 
 		sessions = append(sessions, &storage.SessionRecord{

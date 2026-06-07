@@ -30,6 +30,7 @@ type UsageRecord struct {
 	Timestamp                time.Time
 	Project                  string
 	GitBranch                string
+	APICalls                 int
 }
 
 // SessionRecord represents metadata for a coding agent session.
@@ -142,6 +143,8 @@ func migrate(db *sql.DB) error {
 
 	// Add scan_context column to file_state for existing DBs (idempotent).
 	db.Exec("ALTER TABLE file_state ADD COLUMN scan_context TEXT DEFAULT ''")
+	// Add api_calls column to usage_records for session-level collectors (idempotent).
+	db.Exec("ALTER TABLE usage_records ADD COLUMN api_calls INTEGER DEFAULT 1")
 
 	// Versioned migrations: each runs once, tracked via meta table.
 	migrations := []struct {

@@ -121,12 +121,16 @@ func (d *DB) UpsertSession(s *SessionRecord) error {
 
 // InsertUsage inserts a single usage record, ignoring duplicates.
 func (d *DB) InsertUsage(r *UsageRecord) error {
+	apiCalls := r.APICalls
+	if apiCalls == 0 {
+		apiCalls = 1
+	}
 	_, err := d.db.Exec(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
-		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch,api_calls)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.Source, r.SessionID, r.Model, r.InputTokens, r.OutputTokens,
 		r.CacheCreationInputTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-		r.CostUSD, r.Timestamp, r.Project, r.GitBranch)
+		r.CostUSD, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 	return err
 }
 
@@ -139,16 +143,20 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 	}
 	defer tx.Rollback()
 	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
-		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch,api_calls)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, r := range records {
+		apiCalls := r.APICalls
+		if apiCalls == 0 {
+			apiCalls = 1
+		}
 		_, err := stmt.Exec(r.Source, r.SessionID, r.Model, r.InputTokens, r.OutputTokens,
 			r.CacheCreationInputTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-			r.CostUSD, r.Timestamp, r.Project, r.GitBranch)
+			r.CostUSD, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 		if err != nil {
 			return err
 		}
