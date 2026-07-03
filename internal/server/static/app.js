@@ -202,10 +202,16 @@ async function refresh() {
       style: { text, fill: tc.muted, fontSize: 14, fontFamily: 'inherit' }
     });
 
-    // Build global model→color mapping from costModel (sorted by cost DESC)
-    // This ensures the same model always gets the same color across all charts
-    const modelColorMap = {};
-    (costModel || []).forEach((d, i) => { modelColorMap[d.model] = colors[i % colors.length]; });
+    // Build one model→color mapping shared by every model-based chart.
+    // costModel is sorted by cost DESC, so both charts use the same stable order
+    // for the current filter range.
+    const modelNames = [...new Set([
+      ...(costModel || []).map(d => d.model),
+      ...(costTime || []).map(d => d.model)
+    ])];
+    const modelColorMap = Object.fromEntries(
+      modelNames.map((model, i) => [model, colors[i % colors.length]])
+    );
 
     // Pie -> Doughnut
     const pieData = (costModel || []).filter(d => d.cost > 0).map(d => ({
@@ -254,7 +260,7 @@ async function refresh() {
         name: m,
         type: 'bar', stack: 'cost',
         barMaxWidth: 40,
-        color: modelColorMap[m],
+        itemStyle: { color: modelColorMap[m] },
         emphasis: { focus: 'series' },
         data: costDates.map(d => +(map[d] || 0).toFixed(4))
       };
@@ -593,7 +599,7 @@ function buildControls() {
   $('sel-granularity').innerHTML = buildOpts(GRANULARITIES, state.granularity, v => t('gran_' + v));
   $('sel-refresh-interval').innerHTML = buildOpts(REFRESH_INTERVALS, state.refreshInterval, v => v >= 60 ? (v / 60) + ' ' + t('unitMin') : v + ' ' + t('unitSec'));
 
-  const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['openclaw', 'openClaw'], ['opencode', 'openCode'], ['kiro', 'kiro'], ['pi', 'pi'], ['hermes', 'hermes']];
+  const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['opencode', 'openCode'], ['pi', 'pi'], ['kiro', 'kiro'], ['hermes', 'hermes'], ['openclaw', 'openClaw']];
   $('filter-source').innerHTML = SOURCES.map(([v, k]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${t(k)}</option>`).join('');
 
   const bar = $('preset-bar');
