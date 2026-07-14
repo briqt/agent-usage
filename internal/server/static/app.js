@@ -25,7 +25,7 @@ function utcToLocalLabel(s) {
 // ── i18n ──
 const I18N = {
   en: {
-    title: 'Usage Analytics', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens',
+    title: 'Usage Analytics', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens', outputTokens: 'Output Tokens',
     sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', cacheHitRate: 'Cache Hit Rate', costByModel: 'Cost by Model', costOverTime: 'Cost Trend',
     tokenUsage: 'Token Usage', dailySessions: 'Daily Sessions', source: 'Source', project: 'Project',
     branch: 'Branch', time: 'Time', tokens: 'Tokens', cost: 'Cost', refresh: 'Refresh',
@@ -40,7 +40,7 @@ const I18N = {
     noSessions: 'No sessions found in this period.', unitMin: 'min', unitSec: 'sec'
   },
   zh: {
-    title: '使用分析', to: '至', totalCost: '总费用', totalTokens: '总 Tokens',
+    title: '使用分析', to: '至', totalCost: '总费用', totalTokens: '总 Tokens', outputTokens: '输出 Tokens',
     sessions: '会话数', prompts: 'Prompt 数', apiCalls: 'API 调用数', cacheHitRate: '缓存命中率', costByModel: '模型费用占比', costOverTime: '费用趋势',
     tokenUsage: 'Token 用量', dailySessions: '每日会话数', source: '来源', project: '项目',
     branch: '分支', time: '时间', tokens: 'Tokens', cost: '费用', refresh: '刷新',
@@ -189,6 +189,7 @@ async function refresh() {
 
     $('s-cost').textContent = fmtCost(stats.total_cost || 0);
     $('s-tokens').textContent = fmt(stats.total_tokens || 0);
+    $('s-output-tokens').textContent = fmt(stats.total_output_tokens || 0);
     $('s-sessions').textContent = stats.total_sessions || 0;
     $('s-prompts').textContent = stats.total_prompts || 0;
     $('s-calls').textContent = fmt(stats.total_calls || 0);

@@ -373,6 +373,10 @@ func TestGetDashboardStatsCacheHitRate(t *testing.T) {
 	if stats.TotalTokens != 2600 {
 		t.Errorf("expected TotalTokens 2600, got %d", stats.TotalTokens)
 	}
+	// total_output_tokens = 200 + 100 = 300
+	if stats.TotalOutputTokens != 300 {
+		t.Errorf("expected TotalOutputTokens 300, got %d", stats.TotalOutputTokens)
+	}
 }
 
 func TestGetDashboardStatsCacheHitRateZeroInput(t *testing.T) {

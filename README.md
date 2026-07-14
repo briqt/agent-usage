@@ -216,7 +216,7 @@ All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `s
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/stats` | Summary: total cost, tokens, sessions, prompts, API calls |
+| `GET /api/stats` | Summary: total cost, tokens, output tokens, sessions, prompts, API calls |
 | `GET /api/cost-by-model` | Cost grouped by model |
 | `GET /api/cost-over-time` | Cost time series (supports `granularity`) |
 | `GET /api/tokens-over-time` | Token usage time series (supports `granularity`) |

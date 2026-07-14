@@ -216,7 +216,7 @@ agent-usage
 
 | 接口 | 说明 |
 |------|------|
-| `GET /api/stats` | 汇总：总费用、总 token、会话数、Prompt 数、API 调用数 |
+| `GET /api/stats` | 汇总：总费用、总 token、输出 token、会话数、Prompt 数、API 调用数 |
 | `GET /api/cost-by-model` | 按模型分组的费用 |
 | `GET /api/cost-over-time` | 费用时序（支持 `granularity`） |
 | `GET /api/tokens-over-time` | Token 用量时序（支持 `granularity`） |

@@ -23,12 +23,13 @@ func modelFilter(model string) (string, []interface{}) {
 
 // DashboardStats holds aggregate statistics for the dashboard summary cards.
 type DashboardStats struct {
-	TotalCost     float64 `json:"total_cost"`
-	TotalTokens   int64   `json:"total_tokens"`
-	TotalSessions int     `json:"total_sessions"`
-	TotalPrompts  int     `json:"total_prompts"`
-	TotalCalls    int     `json:"total_calls"`
-	CacheHitRate  float64 `json:"cache_hit_rate"`
+	TotalCost         float64 `json:"total_cost"`
+	TotalTokens       int64   `json:"total_tokens"`
+	TotalOutputTokens int64   `json:"total_output_tokens"`
+	TotalSessions     int     `json:"total_sessions"`
+	TotalPrompts      int     `json:"total_prompts"`
+	TotalCalls        int     `json:"total_calls"`
+	CacheHitRate      float64 `json:"cache_hit_rate"`
 }
 
 // CostByModel represents total cost for a single model.
@@ -78,9 +79,10 @@ func (d *DB) GetDashboardStats(from, to time.Time, source, model string) (*Dashb
 	var cacheRead, totalInput int64
 	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens+output_tokens),0),
+		COALESCE(SUM(output_tokens),0),
 		COALESCE(SUM(cache_read_input_tokens),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens),0)
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalCost, &s.TotalTokens, &cacheRead, &totalInput)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalCost, &s.TotalTokens, &s.TotalOutputTokens, &cacheRead, &totalInput)
 	if err != nil {
 		return nil, err
 	}

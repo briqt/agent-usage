@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-07-14
+
+### Added
+- Dashboard now shows an **Output Tokens** summary card (between Total Tokens and Total Cost); `/api/stats` returns a new `total_output_tokens` field.
+
+## [1.12.0] - 2026-06-07
+
 ### Added
 - Kiro collector now supports dual data sources: SQLite database (`~/.local/share/kiro-cli/data.sqlite3`) and JSON/JSONL session files (`~/.kiro/sessions/cli/`). Both are scanned simultaneously with auto-detection based on path type.
 
