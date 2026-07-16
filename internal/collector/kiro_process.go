@@ -171,6 +171,7 @@ func (c *KiroCollector) processSQLite(dbPath string) error {
 
 			records = append(records, &storage.UsageRecord{
 				Source:       "kiro",
+				TokenQuality: "estimated",
 				SessionID:    conversationID,
 				Model:        recordModel,
 				Timestamp:    ts,
@@ -371,6 +372,7 @@ func (c *KiroCollector) processSession(jsonPath string) error {
 				}
 				records = append(records, &storage.UsageRecord{
 					Source:       "kiro",
+					TokenQuality: "estimated",
 					SessionID:    sessionID,
 					Model:        model,
 					Timestamp:    ts.Add(time.Duration(r) * time.Millisecond),

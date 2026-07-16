@@ -37,7 +37,7 @@ Where `SKILL_DIR` is the directory containing this SKILL.md file.
 
 ### Step 2a: API Mode (preferred)
 
-Use `query-api.sh` to call the agent-usage REST API. This is faster and has accurate pricing data.
+Use `query-api.sh` to call the agent-usage REST API. This is faster and exposes pricing provenance, native costs, token quality, and deterministic server-side billing.
 
 ```bash
 bash SKILL_DIR/scripts/query-api.sh <command> [options]
@@ -46,7 +46,7 @@ bash SKILL_DIR/scripts/query-api.sh <command> [options]
 Commands:
 | Command | Description | Key Options |
 |---------|-------------|-------------|
-| `stats` | Summary: total cost, tokens, sessions, prompts, API calls | `--from`, `--to`, `--source`, `--model` |
+| `stats` | API estimate, actual/source estimate, credits, token totals/quality, sessions, prompts, calls | `--from`, `--to`, `--source`, `--model` |
 | `cost-by-model` | Cost breakdown per model | `--from`, `--to`, `--source` |
 | `cost-over-time` | Cost trend over time | `--from`, `--to`, `--granularity`, `--source`, `--model` |
 | `tokens-over-time` | Token usage trend | `--from`, `--to`, `--granularity`, `--source`, `--model` |
@@ -63,7 +63,7 @@ Options:
 
 ### Step 2b: Local Mode (fallback)
 
-Use `usage.py` to parse JSONL session files directly. No server needed, but pricing is approximate (built-in price table for common models).
+Use `usage.py` to parse local sources directly. No server is needed, but results remain an API-equivalent estimate and do not include every server collector or native billing field.
 
 ```bash
 python3 SKILL_DIR/scripts/usage.py <command> [options]
@@ -84,10 +84,12 @@ Same `--from`, `--to`, `--source` options as API mode. Additional: `-n N` for to
 After getting JSON output from either backend:
 
 1. Parse the JSON response
-2. Format numbers: costs as `$X.XX`, tokens as `X.XK` or `X.XM`
-3. Answer the user's specific question — don't dump raw data
-4. Use markdown tables for multi-row data (sessions, model breakdown)
-5. Add brief insights when relevant (e.g., "claude-opus-4-6 accounts for 85% of your spending")
+2. Label `api_estimated_cost_usd` / legacy `total_cost` as an **API-equivalent estimate**, not money necessarily charged
+3. Label `actual_cost_usd` as source-reported actual cost and `source_estimated_cost_usd` as a source estimate
+4. Present `codex_credits` as credits, never as USD or a cash conversion
+5. Mention estimated-token or unpriced records when either count is non-zero
+6. Format USD as `$X.XX`, credits with the `credits` suffix, and tokens as `X.XK` or `X.XM`
+7. Answer the user's specific question; use tables only for multi-row data and add a brief insight when useful
 
 ### Time Range Mapping
 
@@ -134,11 +136,13 @@ User: "Token usage trend this week by hour"
 
 ## Notes
 
-- Local mode pricing is approximate — only common models have built-in prices
-- For accurate pricing, deploy the agent-usage server: https://github.com/briqt/agent-usage
+- API-equivalent estimates use a small official override table first and LiteLLM for broad coverage. Unmatched models remain unpriced; they are not fuzzy-matched.
+- Local mode has fewer data sources and billing fields. Prefer the server for migrations, native costs, Codex credits, token-quality flags, and complete pricing provenance.
+- Claude rows are deduplicated using session + request ID + message ID when those identifiers are available.
+- Kiro token counts are estimates. Do not describe them as exact.
+- For complete billing semantics, deploy the agent-usage server: https://github.com/briqt/agent-usage
 - Local mode scans `~/.claude/projects`, `~/.codex/sessions`, `~/.openclaw/agents`, `~/.local/share/opencode/opencode.db`, `~/.pi/agent/sessions` by default
 - Hermes Agent data is read from SQLite databases at `~/.hermes/state.db` and `~/.hermes/profiles/*/state.db`. Supports multiple profiles automatically.
-- Kiro has two data sources: SQLite (`~/.local/share/kiro-cli/data.sqlite3`) and JSON sessions (`~/.kiro/sessions/cli/`). Both are scanned when configured.
 
 ## Docker Deployment Warning
 

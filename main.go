@@ -40,14 +40,12 @@ func main() {
 	}
 	defer db.Close()
 
-	// Check if version changed — if so, reset scan state to force full re-scan
-	// (needed when prompt counting logic or other parsing changes)
+	// Versioned migrations own scan-state resets. Resetting on every binary
+	// version change duplicates retained history and can lose sessions whose
+	// source files have already been removed.
 	lastVer, _ := db.GetMeta("version")
 	if lastVer != "" && lastVer != version {
-		log.Printf("version changed (%s -> %s), resetting scan state for full re-scan", lastVer, version)
-		if err := db.ResetScanState(); err != nil {
-			log.Printf("reset scan state: %v", err)
-		}
+		log.Printf("version changed (%s -> %s); applying versioned migrations only", lastVer, version)
 	}
 	db.SetMeta("version", version)
 
@@ -83,13 +81,13 @@ func main() {
 		if err := ce.c.Scan(); err != nil {
 			log.Printf("%s scan: %v", ce.name, err)
 		}
-		recalcCosts(db)
+		recalcPendingCosts(db)
 
 		go func(ce collectorEntry) {
 			ticker := time.NewTicker(ce.cfg.ScanInterval)
 			for range ticker.C {
 				ce.c.Scan()
-				recalcCosts(db)
+				recalcPendingCosts(db)
 			}
 		}(ce)
 	}
@@ -110,11 +108,21 @@ func main() {
 }
 
 func recalcCosts(db *storage.DB) {
-	prices, err := db.GetAllPricing()
+	prices, err := db.GetAllModelPricing()
 	if err != nil {
 		return
 	}
-	if err := db.RecalcCosts(prices, pricing.CalcCost); err != nil {
+	if err := db.RecalcCosts(prices); err != nil {
 		log.Printf("recalc costs: %v", err)
+	}
+}
+
+func recalcPendingCosts(db *storage.DB) {
+	prices, err := db.GetAllModelPricing()
+	if err != nil {
+		return
+	}
+	if err := db.RecalcPendingCosts(prices); err != nil {
+		log.Printf("recalc pending costs: %v", err)
 	}
 }

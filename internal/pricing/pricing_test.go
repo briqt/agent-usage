@@ -1,6 +1,11 @@
 package pricing
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+
+	"github.com/briqt/agent-usage/internal/storage"
+)
 
 func TestCalcCost_Basic(t *testing.T) {
 	// prices: [input, output, cache_read, cache_creation]
@@ -51,5 +56,30 @@ func TestCalcCost_ZeroPrices(t *testing.T) {
 	cost := CalcCost(1000, 500, 200, 300, prices)
 	if cost != 0 {
 		t.Errorf("expected 0, got %f", cost)
+	}
+}
+
+func TestApplyOfficialOverrides(t *testing.T) {
+	db, err := storage.Open(filepath.Join(t.TempDir(), "pricing.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := applyOfficialOverrides(db); err != nil {
+		t.Fatal(err)
+	}
+	prices, err := db.GetAllModelPricing()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, ok := prices["claude-opus-4-7"]
+	if !ok {
+		t.Fatal("official Claude override missing")
+	}
+	if p.CacheCreation1h != 10e-6 || p.FastMultiplier != 6 {
+		t.Fatalf("official override = %#v", p)
+	}
+	if p.Source != "anthropic_official" {
+		t.Fatalf("official source = %q", p.Source)
 	}
 }

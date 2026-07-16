@@ -2,6 +2,7 @@ package pricing
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -12,15 +13,21 @@ import (
 const pricingURL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 
 type modelPricing struct {
-	InputCostPerToken              *float64 `json:"input_cost_per_token"`
-	OutputCostPerToken             *float64 `json:"output_cost_per_token"`
-	CacheReadInputTokenCost        *float64 `json:"cache_read_input_token_cost"`
-	CacheCreationInputTokenCost    *float64 `json:"cache_creation_input_token_cost"`
+	InputCostPerToken           *float64 `json:"input_cost_per_token"`
+	OutputCostPerToken          *float64 `json:"output_cost_per_token"`
+	CacheReadInputTokenCost     *float64 `json:"cache_read_input_token_cost"`
+	CacheCreationInputTokenCost *float64 `json:"cache_creation_input_token_cost"`
 }
 
 // Sync fetches model pricing from the litellm GitHub repository and upserts
 // it into the database. Only models relevant to AI coding agents are stored.
 func Sync(db *storage.DB) error {
+	// Seed the small official rate card first so supported Claude models remain
+	// priceable when the broad LiteLLM catalog cannot be fetched.
+	if err := applyOfficialOverrides(db); err != nil {
+		return err
+	}
+
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(pricingURL)
 	if err != nil {
@@ -28,6 +35,9 @@ func Sync(db *storage.DB) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("pricing: fetch LiteLLM catalog: %s", resp.Status)
+	}
 	var data map[string]json.RawMessage
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return err
@@ -51,12 +61,30 @@ func Sync(db *storage.DB) error {
 			cacheCreate = *p.CacheCreationInputTokenCost
 		}
 
-		if err := db.UpsertPricing(model, *p.InputCostPerToken, *p.OutputCostPerToken, cacheRead, cacheCreate); err != nil {
+		rate := storage.ModelPricing{
+			Input: *p.InputCostPerToken, Output: *p.OutputCostPerToken,
+			CacheRead: cacheRead, CacheCreation5m: cacheCreate,
+			FastMultiplier: 1, Source: "litellm",
+		}
+		if err := db.UpsertModelPricing(model, rate); err != nil {
 			log.Printf("pricing: error upserting %s: %v", model, err)
 		}
 		count++
 	}
+	if err := applyOfficialOverrides(db); err != nil {
+		return err
+	}
+	count += len(officialOverrides)
 	log.Printf("pricing: synced %d models", count)
+	return nil
+}
+
+func applyOfficialOverrides(db *storage.DB) error {
+	for model, rate := range officialOverrides {
+		if err := db.UpsertModelPricing(model, rate); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

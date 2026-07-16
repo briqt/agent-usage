@@ -23,21 +23,38 @@ func (c *HermesCollector) processDB(dbPath, project string) error {
 }
 
 func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) error {
-	rows, err := hermesDB.Query(`
+	columns, err := sqliteTableColumns(hermesDB, "sessions")
+	if err != nil {
+		return fmt.Errorf("inspect sessions schema: %w", err)
+	}
+	expression := func(column, fallback string) string {
+		if columns[column] {
+			return "COALESCE(" + column + ", " + fallback + ")"
+		}
+		return fallback
+	}
+	costSelect := fmt.Sprintf("%s, %s, %s, %s",
+		expression("actual_cost_usd", "0"),
+		expression("estimated_cost_usd", "0"),
+		expression("cost_status", "''"),
+		expression("cost_source", "''"),
+	)
+	rows, err := hermesDB.Query(fmt.Sprintf(`
 		SELECT id, model, started_at,
 			COALESCE(input_tokens, 0),
 			COALESCE(output_tokens, 0),
 			COALESCE(cache_read_tokens, 0),
 			COALESCE(cache_write_tokens, 0),
 			COALESCE(reasoning_tokens, 0),
-			COALESCE(api_call_count, 1)
+			COALESCE(api_call_count, 1),
+			%s
 		FROM sessions
 		WHERE model IS NOT NULL
 			AND TRIM(model) != ''
 			AND (input_tokens + output_tokens + cache_read_tokens + cache_write_tokens) > 0
 			AND started_at IS NOT NULL
 			AND started_at > 0
-	`)
+	`, costSelect))
 	if err != nil {
 		return fmt.Errorf("query sessions: %w", err)
 	}
@@ -48,27 +65,31 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 
 	for rows.Next() {
 		var (
-			sessionID  string
-			model      string
-			startedAt  float64
-			input      int64
-			output     int64
-			cacheRead  int64
-			cacheWrite int64
-			reasoning  int64
-			apiCalls   int
+			sessionID                 string
+			model                     string
+			startedAt                 float64
+			input                     int64
+			output                    int64
+			cacheRead                 int64
+			cacheWrite                int64
+			reasoning                 int64
+			apiCalls                  int
+			actualCost, estimatedCost float64
+			costStatus, costSource    string
 		)
 		if err := rows.Scan(&sessionID, &model, &startedAt,
-			&input, &output, &cacheRead, &cacheWrite, &reasoning, &apiCalls); err != nil {
+			&input, &output, &cacheRead, &cacheWrite, &reasoning, &apiCalls,
+			&actualCost, &estimatedCost, &costStatus, &costSource); err != nil {
 			continue
 		}
 
 		ts := time.Unix(int64(startedAt), int64((startedAt-float64(int64(startedAt)))*1e9))
 
-		records = append(records, &storage.UsageRecord{
+		record := &storage.UsageRecord{
 			Source:                   "hermes",
 			SessionID:                sessionID,
 			Model:                    model,
+			TokenQuality:             "exact",
 			Timestamp:                ts,
 			Project:                  project,
 			InputTokens:              input,
@@ -77,7 +98,16 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 			CacheCreationInputTokens: cacheWrite,
 			ReasoningOutputTokens:    reasoning,
 			APICalls:                 apiCalls,
-		})
+		}
+		if actualCost > 0 {
+			record.NativeCostUSD = actualCost
+			record.NativeCostKind = "actual"
+		} else if estimatedCost > 0 {
+			record.NativeCostUSD = estimatedCost
+			record.NativeCostKind = "source_estimate"
+		}
+		_, _ = costStatus, costSource
+		records = append(records, record)
 
 		sessions = append(sessions, &storage.SessionRecord{
 			Source:    "hermes",
@@ -102,6 +132,26 @@ func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) erro
 		}
 	}
 	return nil
+}
+
+func sqliteTableColumns(db *sql.DB, table string) (map[string]bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return nil, err
+		}
+		columns[name] = true
+	}
+	return columns, rows.Err()
 }
 
 func (c *HermesCollector) processPromptEvents(hermesDB *sql.DB) error {

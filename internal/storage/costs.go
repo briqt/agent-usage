@@ -7,7 +7,7 @@ type CostCalcFunc func(inputTokens, outputTokens, cacheCreation, cacheRead int64
 
 // RecalcCosts recalculates costs for all usage records where cost_usd is zero,
 // using fuzzy model name matching against the provided pricing map.
-func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) error {
+func (d *DB) recalcCostsLegacy(allPrices map[string][4]float64, calcFn CostCalcFunc) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -18,9 +18,9 @@ func (d *DB) RecalcCosts(allPrices map[string][4]float64, calcFn CostCalcFunc) e
 	defer rows.Close()
 
 	type rec struct {
-		id                       int64
-		model                    string
-		input, output, cc, cr    int64
+		id                    int64
+		model                 string
+		input, output, cc, cr int64
 	}
 	var recs []rec
 	for rows.Next() {

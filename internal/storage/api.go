@@ -23,13 +23,19 @@ func modelFilter(model string) (string, []interface{}) {
 
 // DashboardStats holds aggregate statistics for the dashboard summary cards.
 type DashboardStats struct {
-	TotalCost         float64 `json:"total_cost"`
-	TotalTokens       int64   `json:"total_tokens"`
-	TotalOutputTokens int64   `json:"total_output_tokens"`
-	TotalSessions     int     `json:"total_sessions"`
-	TotalPrompts      int     `json:"total_prompts"`
-	TotalCalls        int     `json:"total_calls"`
-	CacheHitRate      float64 `json:"cache_hit_rate"`
+	TotalCost              float64 `json:"total_cost"`
+	APIEstimatedCostUSD    float64 `json:"api_estimated_cost_usd"`
+	ActualCostUSD          float64 `json:"actual_cost_usd"`
+	SourceEstimatedCostUSD float64 `json:"source_estimated_cost_usd"`
+	CodexCredits           float64 `json:"codex_credits"`
+	EstimatedTokenRecords  int64   `json:"estimated_token_records"`
+	UnpricedRecords        int64   `json:"unpriced_records"`
+	TotalTokens            int64   `json:"total_tokens"`
+	TotalOutputTokens      int64   `json:"total_output_tokens"`
+	TotalSessions          int     `json:"total_sessions"`
+	TotalPrompts           int     `json:"total_prompts"`
+	TotalCalls             int     `json:"total_calls"`
+	CacheHitRate           float64 `json:"cache_hit_rate"`
 }
 
 // CostByModel represents total cost for a single model.
@@ -40,9 +46,9 @@ type CostByModel struct {
 
 // TimeSeriesPoint represents a single data point in a daily cost time series.
 type TimeSeriesPoint struct {
-	Date   string  `json:"date"`
-	Value  float64 `json:"value"`
-	Model  string  `json:"model,omitempty"`
+	Date  string  `json:"date"`
+	Value float64 `json:"value"`
+	Model string  `json:"model,omitempty"`
 }
 
 // TokenTimeSeriesPoint represents daily token usage broken down by category.
@@ -77,15 +83,25 @@ func (d *DB) GetDashboardStats(from, to time.Time, source, model string) (*Dashb
 	args = append(args, ma...)
 	filter := sf + mf
 	var cacheRead, totalInput int64
-	err := d.db.QueryRow(`SELECT COALESCE(SUM(cost_usd),0),
+	err := d.db.QueryRow(`SELECT
+		COALESCE(SUM(cost_usd),0),
+		COALESCE(SUM(CASE WHEN native_cost_kind='actual' THEN native_cost_usd ELSE 0 END),0),
+		COALESCE(SUM(CASE WHEN native_cost_kind='source_estimate' THEN native_cost_usd ELSE 0 END),0),
+		COALESCE(SUM(codex_credits),0),
+		COALESCE(SUM(CASE WHEN token_quality='estimated' THEN 1 ELSE 0 END),0),
+		COALESCE(SUM(CASE WHEN price_source='unknown' THEN 1 ELSE 0 END),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens+output_tokens),0),
 		COALESCE(SUM(output_tokens),0),
 		COALESCE(SUM(cache_read_input_tokens),0),
 		COALESCE(SUM(input_tokens+cache_read_input_tokens+cache_creation_input_tokens),0)
-		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(&s.TotalCost, &s.TotalTokens, &s.TotalOutputTokens, &cacheRead, &totalInput)
+		FROM usage_records WHERE timestamp BETWEEN ? AND ?`+filter, args...).Scan(
+		&s.TotalCost, &s.ActualCostUSD, &s.SourceEstimatedCostUSD, &s.CodexCredits,
+		&s.EstimatedTokenRecords, &s.UnpricedRecords, &s.TotalTokens,
+		&s.TotalOutputTokens, &cacheRead, &totalInput)
 	if err != nil {
 		return nil, err
 	}
+	s.APIEstimatedCostUSD = s.TotalCost
 	if totalInput > 0 {
 		s.CacheHitRate = float64(cacheRead) / float64(totalInput)
 	}

@@ -33,9 +33,9 @@ type opencodeMessageData struct {
 }
 
 type opencodeTokens struct {
-	Input     int64        `json:"input"`
-	Output    int64        `json:"output"`
-	Reasoning int64        `json:"reasoning"`
+	Input     int64         `json:"input"`
+	Output    int64         `json:"output"`
+	Reasoning int64         `json:"reasoning"`
 	Cache     opencodeCache `json:"cache"`
 }
 
@@ -124,8 +124,10 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 
 		rec := &storage.UsageRecord{
 			Source:                   "opencode",
+			Provider:                 msg.ProviderID,
 			SessionID:                sessionID,
 			Model:                    msg.ModelID,
+			TokenQuality:             "exact",
 			Timestamp:                ts,
 			Project:                  directory,
 			InputTokens:              msg.Tokens.Input,
@@ -133,6 +135,10 @@ func (c *OpenCodeCollector) processDB(dbPath string) error {
 			CacheReadInputTokens:     msg.Tokens.Cache.Read,
 			CacheCreationInputTokens: msg.Tokens.Cache.Write,
 			ReasoningOutputTokens:    msg.Tokens.Reasoning,
+		}
+		if msg.Cost > 0 {
+			rec.NativeCostUSD = msg.Cost
+			rec.NativeCostKind = "actual"
 		}
 		records = append(records, rec)
 

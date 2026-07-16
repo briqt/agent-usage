@@ -199,24 +199,43 @@ agent-usage
 
 ## Cost Calculation
 
-Pricing is fetched from [litellm's model price database](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) and stored locally.
+The dashboard keeps different billing concepts separate:
+
+- **API-equivalent estimate (USD)** — what the recorded tokens would cost at the public API rate card. This remains the value returned as `total_cost` for API compatibility; `api_estimated_cost_usd` is the explicit alias.
+- **Actual cost (USD)** — a native amount reported by the source, currently preserved from OpenCode and supported Hermes schemas.
+- **Source estimate (USD)** — an estimate produced by the source itself, kept separate from both actual cost and this project's API-equivalent estimate.
+- **Codex credits** — usage calculated from the published Codex rate card. Credits have no cash value and are never presented as USD.
+
+Pricing precedence is intentionally narrow and auditable:
+
+1. A small built-in official override table supplies product-specific fields such as Anthropic 5-minute/1-hour cache writes and fast-mode multipliers.
+2. [LiteLLM's model price database](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) supplies broad model coverage.
+3. Models without a deterministic exact/provider-qualified match remain unpriced. Substring matching is not used.
 
 ```
-cost = (input - cache_read - cache_creation) × input_price
-     + cache_creation × cache_creation_price
-     + cache_read × cache_read_price
-     + output × output_price
+API-equivalent USD =
+       non_cached_input × input_price
+     + cache_write_5m  × cache_write_5m_price
+     + cache_write_1h  × cache_write_1h_price
+     + cache_read      × cache_read_price
+     + output          × output_price
 ```
 
-When prices update, historical records are automatically backfilled.
+All token components are non-overlapping. Applicable speed and inference-region modifiers are applied after the token components. Every pricing sync recalculates historical API-equivalent estimates, including previously non-zero values, while native actual/source-estimated costs are never overwritten.
+
+Claude Code records are deduplicated by session + request ID + message ID because one API response may be repeated in several content-block events. Kiro token counts are estimates and are identified as such in API statistics.
+
+On first upgrade to v1.14, historical Claude rows are preserved and conservatively deduplicated: zero-token rows are removed, and identical token tuples within the same five-minute response cluster are collapsed. Sessions, prompt events, and scan positions are retained, including history whose source files no longer exist. Legacy cache writes that did not expose a TTL keep the base cache-write rate; newly collected rows record 5-minute and 1-hour cache writes separately. The migration is idempotent; still back up `agent-usage.db` before upgrading.
+
+References: [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing), [Anthropic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching), [OpenAI Codex rate card](https://help.openai.com/en/articles/20001106), [OpenAI credits](https://help.openai.com/en/articles/12642688).
 
 ## API Endpoints
 
-All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`, `pi`) to filter by agent, `model` to filter by model name, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
+All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`, `pi`, `hermes`) to filter by agent, `model` to filter by model name, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/stats` | Summary: total cost, tokens, output tokens, sessions, prompts, API calls |
+| `GET /api/stats` | Summary: API estimate, actual/source-estimated cost, Codex credits, token quality, tokens, sessions, prompts, API calls |
 | `GET /api/cost-by-model` | Cost grouped by model |
 | `GET /api/cost-over-time` | Cost time series (supports `granularity`) |
 | `GET /api/tokens-over-time` | Token usage time series (supports `granularity`) |

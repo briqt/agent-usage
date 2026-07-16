@@ -96,12 +96,16 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 				continue
 			}
 			rec := &storage.UsageRecord{
-				Source:    "claude",
-				SessionID: sessionID,
-				Model:     msg.Model,
-				Timestamp: ts,
-				Project:   project,
-				GitBranch: gitBranch,
+				Source:       "claude",
+				Provider:     "anthropic",
+				SessionID:    sessionID,
+				RequestID:    entry.RequestID,
+				MessageID:    msg.ID,
+				Model:        msg.Model,
+				TokenQuality: "exact",
+				Timestamp:    ts,
+				Project:      project,
+				GitBranch:    gitBranch,
 			}
 			if msg.Usage.InputTokens != nil {
 				rec.InputTokens = *msg.Usage.InputTokens
@@ -115,6 +119,16 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 			if msg.Usage.CacheReadInputTokens != nil {
 				rec.CacheReadInputTokens = *msg.Usage.CacheReadInputTokens
 			}
+			if msg.Usage.CacheCreation != nil {
+				if msg.Usage.CacheCreation.Ephemeral5mInputTokens != nil {
+					rec.CacheCreation5mTokens = *msg.Usage.CacheCreation.Ephemeral5mInputTokens
+				}
+				if msg.Usage.CacheCreation.Ephemeral1hInputTokens != nil {
+					rec.CacheCreation1hTokens = *msg.Usage.CacheCreation.Ephemeral1hInputTokens
+				}
+			}
+			rec.Speed = msg.Usage.Speed
+			rec.InferenceGeo = msg.Usage.InferenceGeo
 			records = append(records, rec)
 		}
 	}
@@ -130,7 +144,15 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 			if r.SessionID == "" {
 				r.SessionID = sessionID
 			}
+			if r.RequestID != "" && r.MessageID != "" {
+				r.DedupKey = fmt.Sprintf("%s:%s:%s", r.SessionID, r.RequestID, r.MessageID)
+			} else if r.RequestID != "" {
+				r.DedupKey = fmt.Sprintf("%s:%s", r.SessionID, r.RequestID)
+			} else if r.MessageID != "" {
+				r.DedupKey = fmt.Sprintf("%s:%s", r.SessionID, r.MessageID)
+			}
 		}
+		records = deduplicateClaudeRecords(records)
 		if err := c.db.InsertUsageBatch(records); err != nil {
 			return fmt.Errorf("insert usage: %w", err)
 		}
@@ -164,4 +186,39 @@ func (c *ClaudeCollector) processFile(path, project string) error {
 	}
 
 	return c.db.SetFileState(path, info.Size(), info.Size(), nil)
+}
+
+func deduplicateClaudeRecords(records []*storage.UsageRecord) []*storage.UsageRecord {
+	result := make([]*storage.UsageRecord, 0, len(records))
+	positions := make(map[string]int)
+	for _, record := range records {
+		if record.DedupKey == "" {
+			result = append(result, record)
+			continue
+		}
+		if position, ok := positions[record.DedupKey]; ok {
+			if claudeRecordScore(record) > claudeRecordScore(result[position]) {
+				result[position] = record
+			}
+			continue
+		}
+		positions[record.DedupKey] = len(result)
+		result = append(result, record)
+	}
+	return result
+}
+
+func claudeRecordScore(record *storage.UsageRecord) int64 {
+	score := record.InputTokens + record.OutputTokens + record.CacheCreationInputTokens +
+		record.CacheReadInputTokens
+	if record.CacheCreation5mTokens+record.CacheCreation1hTokens > 0 {
+		score += 1
+	}
+	if record.Speed != "" {
+		score += 1
+	}
+	if record.InferenceGeo != "" {
+		score += 1
+	}
+	return score
 }

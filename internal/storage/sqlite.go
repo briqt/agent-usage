@@ -19,14 +19,27 @@ type DB struct {
 type UsageRecord struct {
 	ID                       int64
 	Source                   string // "claude" or "codex"
+	Provider                 string
 	SessionID                string
+	RequestID                string
+	MessageID                string
+	DedupKey                 string
 	Model                    string
 	InputTokens              int64
 	OutputTokens             int64
 	CacheCreationInputTokens int64
+	CacheCreation5mTokens    int64
+	CacheCreation1hTokens    int64
 	CacheReadInputTokens     int64
 	ReasoningOutputTokens    int64
-	CostUSD                  float64
+	CostUSD                  float64 // API-equivalent USD estimate kept for API compatibility.
+	NativeCostUSD            float64
+	NativeCostKind           string // actual or source_estimate
+	CodexCredits             float64
+	TokenQuality             string // exact or estimated
+	PriceSource              string
+	Speed                    string
+	InferenceGeo             string
 	Timestamp                time.Time
 	Project                  string
 	GitBranch                string
@@ -75,14 +88,28 @@ func migrate(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS usage_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			source TEXT NOT NULL,
+			provider TEXT DEFAULT '',
 			session_id TEXT NOT NULL,
+			request_id TEXT DEFAULT '',
+			message_id TEXT DEFAULT '',
+			dedup_key TEXT DEFAULT '',
 			model TEXT NOT NULL,
 			input_tokens INTEGER DEFAULT 0,
 			output_tokens INTEGER DEFAULT 0,
 			cache_creation_input_tokens INTEGER DEFAULT 0,
+			cache_creation_5m_tokens INTEGER DEFAULT 0,
+			cache_creation_1h_tokens INTEGER DEFAULT 0,
 			cache_read_input_tokens INTEGER DEFAULT 0,
 			reasoning_output_tokens INTEGER DEFAULT 0,
 			cost_usd REAL DEFAULT 0,
+			native_cost_usd REAL DEFAULT 0,
+			native_cost_kind TEXT DEFAULT '',
+			codex_credits REAL DEFAULT 0,
+			token_quality TEXT DEFAULT 'exact',
+			price_source TEXT DEFAULT '',
+			speed TEXT DEFAULT '',
+			inference_geo TEXT DEFAULT '',
+			priced_at DATETIME,
 			timestamp DATETIME NOT NULL,
 			project TEXT DEFAULT '',
 			git_branch TEXT DEFAULT ''
@@ -126,6 +153,9 @@ func migrate(db *sql.DB) error {
 			output_cost_per_token REAL DEFAULT 0,
 			cache_read_input_token_cost REAL DEFAULT 0,
 			cache_creation_input_token_cost REAL DEFAULT 0,
+			cache_creation_1h_input_token_cost REAL DEFAULT 0,
+			fast_multiplier REAL DEFAULT 1,
+			source TEXT DEFAULT 'litellm',
 			updated_at DATETIME
 		);
 
@@ -142,9 +172,31 @@ func migrate(db *sql.DB) error {
 	}
 
 	// Add scan_context column to file_state for existing DBs (idempotent).
-	db.Exec("ALTER TABLE file_state ADD COLUMN scan_context TEXT DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE file_state ADD COLUMN scan_context TEXT DEFAULT ''")
 	// Add api_calls column to usage_records for session-level collectors (idempotent).
-	db.Exec("ALTER TABLE usage_records ADD COLUMN api_calls INTEGER DEFAULT 1")
+	_, _ = db.Exec("ALTER TABLE usage_records ADD COLUMN api_calls INTEGER DEFAULT 1")
+	billingAlters := []string{
+		"ALTER TABLE usage_records ADD COLUMN provider TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN request_id TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN message_id TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN dedup_key TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN cache_creation_5m_tokens INTEGER DEFAULT 0",
+		"ALTER TABLE usage_records ADD COLUMN cache_creation_1h_tokens INTEGER DEFAULT 0",
+		"ALTER TABLE usage_records ADD COLUMN native_cost_usd REAL DEFAULT 0",
+		"ALTER TABLE usage_records ADD COLUMN native_cost_kind TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN codex_credits REAL DEFAULT 0",
+		"ALTER TABLE usage_records ADD COLUMN token_quality TEXT DEFAULT 'exact'",
+		"ALTER TABLE usage_records ADD COLUMN price_source TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN speed TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN inference_geo TEXT DEFAULT ''",
+		"ALTER TABLE usage_records ADD COLUMN priced_at DATETIME",
+		"ALTER TABLE pricing ADD COLUMN cache_creation_1h_input_token_cost REAL DEFAULT 0",
+		"ALTER TABLE pricing ADD COLUMN fast_multiplier REAL DEFAULT 1",
+		"ALTER TABLE pricing ADD COLUMN source TEXT DEFAULT 'litellm'",
+	}
+	for _, statement := range billingAlters {
+		_, _ = db.Exec(statement)
+	}
 
 	// Versioned migrations: each runs once, tracked via meta table.
 	migrations := []struct {
@@ -187,6 +239,64 @@ func migrate(db *sql.DB) error {
 				DELETE FROM file_state WHERE path LIKE '%kiro%';
 			`,
 		},
+		{
+			"006_billing_accuracy", `
+				DELETE FROM usage_records
+				 WHERE source = 'claude'
+				   AND input_tokens = 0
+				   AND output_tokens = 0
+				   AND cache_creation_input_tokens = 0
+				   AND cache_read_input_tokens = 0;
+
+				WITH previous AS (
+					SELECT id, session_id, model, input_tokens, output_tokens,
+					       cache_creation_input_tokens, cache_read_input_tokens,
+					       reasoning_output_tokens, timestamp,
+					       LAG(timestamp) OVER (
+						       PARTITION BY session_id, model, input_tokens, output_tokens,
+							    cache_creation_input_tokens, cache_read_input_tokens,
+							    reasoning_output_tokens
+						       ORDER BY timestamp, id
+					       ) AS previous_timestamp
+					  FROM usage_records
+					 WHERE source = 'claude'
+				),
+				marked AS (
+					SELECT *,
+					       CASE
+						       WHEN previous_timestamp IS NULL THEN 1
+						       WHEN (julianday(substr(timestamp, 1, 19)) - julianday(substr(previous_timestamp, 1, 19))) * 86400.0 > 300.0 THEN 1
+						       ELSE 0
+					       END AS new_cluster
+					  FROM previous
+				),
+				clustered AS (
+					SELECT *,
+					       SUM(new_cluster) OVER (
+						       PARTITION BY session_id, model, input_tokens, output_tokens,
+							    cache_creation_input_tokens, cache_read_input_tokens,
+							    reasoning_output_tokens
+						       ORDER BY timestamp, id
+						       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+					       ) AS cluster_id
+					  FROM marked
+				),
+				ranked AS (
+					SELECT id,
+					       ROW_NUMBER() OVER (
+						       PARTITION BY session_id, model, input_tokens, output_tokens,
+							    cache_creation_input_tokens, cache_read_input_tokens,
+							    reasoning_output_tokens, cluster_id
+						       ORDER BY timestamp, id
+					       ) AS duplicate_rank
+					  FROM clustered
+				)
+				DELETE FROM usage_records
+				 WHERE id IN (SELECT id FROM ranked WHERE duplicate_rank > 1);
+
+				UPDATE usage_records SET token_quality = 'estimated' WHERE source = 'kiro';
+			`,
+		},
 	}
 	for _, m := range migrations {
 		var done string
@@ -200,5 +310,9 @@ func migrate(db *sql.DB) error {
 		db.Exec(`INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
 			"migration_"+m.id, "done")
 	}
+	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_dedup_key ON usage_records(source, dedup_key) WHERE dedup_key != ''"); err != nil {
+		return fmt.Errorf("create billing dedup index: %w", err)
+	}
+
 	return nil
 }

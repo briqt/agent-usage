@@ -125,12 +125,22 @@ func (d *DB) InsertUsage(r *UsageRecord) error {
 	if apiCalls == 0 {
 		apiCalls = 1
 	}
-	_, err := d.db.Exec(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
-		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch,api_calls)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		r.Source, r.SessionID, r.Model, r.InputTokens, r.OutputTokens,
-		r.CacheCreationInputTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-		r.CostUSD, r.Timestamp, r.Project, r.GitBranch, apiCalls)
+	quality := r.TokenQuality
+	if quality == "" {
+		quality = "exact"
+	}
+	_, err := d.db.Exec(`INSERT OR IGNORE INTO usage_records(
+		source,provider,session_id,request_id,message_id,dedup_key,model,
+		input_tokens,output_tokens,cache_creation_input_tokens,cache_creation_5m_tokens,
+		cache_creation_1h_tokens,cache_read_input_tokens,reasoning_output_tokens,
+		cost_usd,native_cost_usd,native_cost_kind,codex_credits,token_quality,
+		price_source,speed,inference_geo,timestamp,project,git_branch,api_calls)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		r.Source, r.Provider, r.SessionID, r.RequestID, r.MessageID, r.DedupKey, r.Model,
+		r.InputTokens, r.OutputTokens, r.CacheCreationInputTokens, r.CacheCreation5mTokens,
+		r.CacheCreation1hTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
+		r.CostUSD, r.NativeCostUSD, r.NativeCostKind, r.CodexCredits, quality,
+		r.PriceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 	return err
 }
 
@@ -142,9 +152,13 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 		return err
 	}
 	defer tx.Rollback()
-	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO usage_records(source,session_id,model,input_tokens,output_tokens,
-		cache_creation_input_tokens,cache_read_input_tokens,reasoning_output_tokens,cost_usd,timestamp,project,git_branch,api_calls)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO usage_records(
+		source,provider,session_id,request_id,message_id,dedup_key,model,
+		input_tokens,output_tokens,cache_creation_input_tokens,cache_creation_5m_tokens,
+		cache_creation_1h_tokens,cache_read_input_tokens,reasoning_output_tokens,
+		cost_usd,native_cost_usd,native_cost_kind,codex_credits,token_quality,
+		price_source,speed,inference_geo,timestamp,project,git_branch,api_calls)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
 	if err != nil {
 		return err
 	}
@@ -154,9 +168,16 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 		if apiCalls == 0 {
 			apiCalls = 1
 		}
-		_, err := stmt.Exec(r.Source, r.SessionID, r.Model, r.InputTokens, r.OutputTokens,
-			r.CacheCreationInputTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-			r.CostUSD, r.Timestamp, r.Project, r.GitBranch, apiCalls)
+		quality := r.TokenQuality
+		if quality == "" {
+			quality = "exact"
+		}
+		_, err := stmt.Exec(
+			r.Source, r.Provider, r.SessionID, r.RequestID, r.MessageID, r.DedupKey, r.Model,
+			r.InputTokens, r.OutputTokens, r.CacheCreationInputTokens, r.CacheCreation5mTokens,
+			r.CacheCreation1hTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
+			r.CostUSD, r.NativeCostUSD, r.NativeCostKind, r.CodexCredits, quality,
+			r.PriceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 		if err != nil {
 			return err
 		}

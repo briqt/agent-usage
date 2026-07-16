@@ -27,20 +27,30 @@ type claudeEntry struct {
 	Version   string          `json:"version"`
 	CWD       string          `json:"cwd"`
 	GitBranch string          `json:"gitBranch"`
+	RequestID string          `json:"requestId"`
 	Message   json.RawMessage `json:"message"`
 }
 
 type claudeMessage struct {
-	Role  string      `json:"role"`
-	Model string      `json:"model"`
+	ID    string       `json:"id"`
+	Role  string       `json:"role"`
+	Model string       `json:"model"`
 	Usage *claudeUsage `json:"usage"`
 }
 
+type claudeCacheCreation struct {
+	Ephemeral5mInputTokens *int64 `json:"ephemeral_5m_input_tokens"`
+	Ephemeral1hInputTokens *int64 `json:"ephemeral_1h_input_tokens"`
+}
+
 type claudeUsage struct {
-	InputTokens              *int64 `json:"input_tokens"`
-	OutputTokens             *int64 `json:"output_tokens"`
-	CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     *int64 `json:"cache_read_input_tokens"`
+	InputTokens              *int64               `json:"input_tokens"`
+	OutputTokens             *int64               `json:"output_tokens"`
+	CacheCreationInputTokens *int64               `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     *int64               `json:"cache_read_input_tokens"`
+	CacheCreation            *claudeCacheCreation `json:"cache_creation"`
+	Speed                    string               `json:"speed"`
+	InferenceGeo             string               `json:"inference_geo"`
 }
 
 // hasToolResultBlock checks whether a JSON content field (string or array)

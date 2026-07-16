@@ -194,15 +194,10 @@ func TestRecalcCosts(t *testing.T) {
 	}
 
 	// Set up pricing
-	prices := map[string][4]float64{
-		"claude-sonnet-4-20250514": {0.003, 0.015, 0.001, 0.004},
+	prices := map[string]ModelPricing{
+		"claude-sonnet-4-20250514": {Input: 0.003, Output: 0.015, Source: "test"},
 	}
-
-	calcFn := func(input, output, cc, cr int64, p [4]float64) float64 {
-		return float64(input)*p[0] + float64(output)*p[1]
-	}
-
-	if err := db.RecalcCosts(prices, calcFn); err != nil {
+	if err := db.RecalcCosts(prices); err != nil {
 		t.Fatalf("RecalcCosts: %v", err)
 	}
 
