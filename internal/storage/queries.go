@@ -129,6 +129,12 @@ func (d *DB) InsertUsage(r *UsageRecord) error {
 	if quality == "" {
 		quality = "exact"
 	}
+	cost := r.CostUSD
+	priceSource := r.PriceSource
+	if r.NativeCostUSD > 0 {
+		cost = r.NativeCostUSD
+		priceSource = nativePriceSource(r.NativeCostKind)
+	}
 	_, err := d.db.Exec(`INSERT OR IGNORE INTO usage_records(
 		source,provider,session_id,request_id,message_id,dedup_key,model,
 		input_tokens,output_tokens,cache_creation_input_tokens,cache_creation_5m_tokens,
@@ -139,8 +145,8 @@ func (d *DB) InsertUsage(r *UsageRecord) error {
 		r.Source, r.Provider, r.SessionID, r.RequestID, r.MessageID, r.DedupKey, r.Model,
 		r.InputTokens, r.OutputTokens, r.CacheCreationInputTokens, r.CacheCreation5mTokens,
 		r.CacheCreation1hTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-		r.CostUSD, r.NativeCostUSD, r.NativeCostKind, r.CodexCredits, quality,
-		r.PriceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
+		cost, r.NativeCostUSD, r.NativeCostKind, 0.0, quality,
+		priceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 	return err
 }
 
@@ -172,12 +178,18 @@ func (d *DB) InsertUsageBatch(records []*UsageRecord) error {
 		if quality == "" {
 			quality = "exact"
 		}
+		cost := r.CostUSD
+		priceSource := r.PriceSource
+		if r.NativeCostUSD > 0 {
+			cost = r.NativeCostUSD
+			priceSource = nativePriceSource(r.NativeCostKind)
+		}
 		_, err := stmt.Exec(
 			r.Source, r.Provider, r.SessionID, r.RequestID, r.MessageID, r.DedupKey, r.Model,
 			r.InputTokens, r.OutputTokens, r.CacheCreationInputTokens, r.CacheCreation5mTokens,
 			r.CacheCreation1hTokens, r.CacheReadInputTokens, r.ReasoningOutputTokens,
-			r.CostUSD, r.NativeCostUSD, r.NativeCostKind, r.CodexCredits, quality,
-			r.PriceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
+			cost, r.NativeCostUSD, r.NativeCostKind, 0.0, quality,
+			priceSource, r.Speed, r.InferenceGeo, r.Timestamp, r.Project, r.GitBranch, apiCalls)
 		if err != nil {
 			return err
 		}

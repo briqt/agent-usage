@@ -25,10 +25,10 @@ function utcToLocalLabel(s) {
 // ── i18n ──
 const I18N = {
   en: {
-    title: 'Usage Analytics', to: 'to', totalCost: 'API Eq. Cost', actualCost: 'Reported Actual', sourceEstimate: 'Source Estimate', codexCredits: 'Codex Credits', totalTokens: 'Total Tokens', outputTokens: 'Output Tokens',
-    sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', cacheHitRate: 'Cache Hit Rate', costByModel: 'API Eq. Cost by Model', costOverTime: 'API Eq. Cost Trend',
+    title: 'Usage Analytics', to: 'to', totalCost: 'Total Cost', totalTokens: 'Total Tokens', outputTokens: 'Output Tokens',
+    sessions: 'Sessions', prompts: 'Prompts', apiCalls: 'API Calls', cacheHitRate: 'Cache Hit Rate', costByModel: 'Cost by Model', costOverTime: 'Cost Trend',
     tokenUsage: 'Token Usage', dailySessions: 'Daily Sessions', source: 'Source', project: 'Project',
-    branch: 'Branch', time: 'Time', tokens: 'Tokens', cost: 'API Eq. Cost', refresh: 'Refresh',
+    branch: 'Branch', time: 'Time', tokens: 'Tokens', cost: 'Cost', refresh: 'Refresh',
     sessionLog: 'Session Log',
     today: 'Today', thisWeek: 'This Week', thisMonth: 'This Month', thisYear: 'This Year',
     last3d: 'Last 3 Days', last7d: 'Last 7 Days', last30d: 'Last 30 Days', custom: 'Custom',
@@ -55,15 +55,6 @@ const I18N = {
     noSessions: '当前时间段内暂无会话数据。', unitMin: '分钟', unitSec: '秒'
   }
 };
-Object.assign(I18N.zh, {
-  totalCost: 'API \u7b49\u4ef7\u4f30\u503c',
-  actualCost: '\u6765\u6e90\u5b9e\u62a5\u8d39\u7528',
-  sourceEstimate: '\u6765\u6e90\u4f30\u7b97\u8d39\u7528',
-  codexCredits: 'Codex Credits',
-  costByModel: 'API \u7b49\u4ef7\u4f30\u503c\u5360\u6bd4',
-  costOverTime: 'API \u7b49\u4ef7\u4f30\u503c\u8d8b\u52bf',
-  cost: 'API \u7b49\u4ef7\u4f30\u503c'
-});
 
 // ── State ──
 const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#a855f7', '#eab308', '#64748b', '#0ea5e9', '#d946ef', '#84cc16', '#f43f5e'];
@@ -196,10 +187,7 @@ async function refresh() {
     // Update model filter dropdown from cost-by-model results
     updateModelFilter(costModel || []);
 
-    $('s-cost').textContent = fmtCost(stats.api_estimated_cost_usd || stats.total_cost || 0);
-    $('s-actual-cost').textContent = fmtCost(stats.actual_cost_usd || 0);
-    $('s-source-estimate').textContent = fmtCost(stats.source_estimated_cost_usd || 0);
-    $('s-codex-credits').textContent = (stats.codex_credits || 0).toFixed(2);
+    $('s-cost').textContent = fmtCost(stats.total_cost || 0);
     $('s-tokens').textContent = fmt(stats.total_tokens || 0);
     $('s-output-tokens').textContent = fmt(stats.total_output_tokens || 0);
     $('s-sessions').textContent = stats.total_sessions || 0;

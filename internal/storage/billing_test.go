@@ -2,13 +2,14 @@ package storage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
-func TestCalculateAPIEquivalentClaudeOneHourCache(t *testing.T) {
+func TestCalculateTokenCostClaudeOneHourCache(t *testing.T) {
 	record := billingRecord{
 		source: "claude", model: "claude-opus-4-7",
 		input: 6, output: 426, cacheRead: 18258, cacheCreate: 11519,
@@ -19,14 +20,14 @@ func TestCalculateAPIEquivalentClaudeOneHourCache(t *testing.T) {
 		CacheCreation5m: 6.25e-6, CacheCreation1h: 10e-6,
 		FastMultiplier: 1,
 	}
-	got := calculateAPIEquivalent(record, price)
+	got := calculateTokenCost(record, price)
 	const want = 0.134999
 	if math.Abs(got-want) > 1e-9 {
 		t.Fatalf("official-equivalent cost = %.9f, want %.9f", got, want)
 	}
 }
 
-func TestRecalcCostsRefreshesExistingEstimateAndKeepsNativeCost(t *testing.T) {
+func TestRecalcCostsPrefersSourceReturnedCost(t *testing.T) {
 	db := tempDB(t)
 	ts := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	err := db.InsertUsage(&UsageRecord{
@@ -47,28 +48,32 @@ func TestRecalcCostsRefreshesExistingEstimateAndKeepsNativeCost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if math.Abs(stats.TotalCost-0.0004) > 1e-12 {
-		t.Fatalf("refreshed API estimate = %.12f, want 0.0004", stats.TotalCost)
+	if stats.TotalCost != 1.23 {
+		t.Fatalf("effective cost = %.2f, want returned cost 1.23", stats.TotalCost)
 	}
-	if stats.ActualCostUSD != 1.23 {
-		t.Fatalf("native actual cost = %.2f, want 1.23", stats.ActualCostUSD)
+	encoded, err := json.Marshal(stats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"api_estimated_cost_usd", "actual_cost_usd", "source_estimated_cost_usd", "codex_credits"} {
+		if _, exists := payload[key]; exists {
+			t.Fatalf("dashboard stats still expose removed cost field %q", key)
+		}
 	}
 }
 
-func TestCodexCreditsRateCard(t *testing.T) {
+func TestCodexUsesTokenPricing(t *testing.T) {
 	record := billingRecord{
-		source: "codex", model: "gpt-5.5",
-		input: 14380703, cacheRead: 153459072, output: 914875,
-		timestamp: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		source: "codex", model: "gpt-5.5", input: 100, cacheRead: 50, output: 20,
 	}
-	got := calculateCodexCredits(record)
-	const want = 4401.982525
-	if math.Abs(got-want) > 1e-6 {
-		t.Fatalf("credits = %.6f, want %.6f", got, want)
-	}
-	record.timestamp = codexCreditEffectiveAt.Add(-time.Second)
-	if got := calculateCodexCredits(record); got != 0 {
-		t.Fatalf("pre-rate-card credits = %f, want 0", got)
+	price := ModelPricing{Input: 2e-6, CacheRead: 0.5e-6, Output: 10e-6}
+	const want = 0.000425
+	if got := calculateTokenCost(record, price); math.Abs(got-want) > 1e-12 {
+		t.Fatalf("Codex token cost = %.9f, want %.9f", got, want)
 	}
 }
 
@@ -177,6 +182,56 @@ func TestBillingMigrationPreservesAndDeduplicatesClaudeHistory(t *testing.T) {
 		t.Fatalf("kiro token quality = %q, want estimated", quality)
 	}
 }
+func TestSingleCostMigrationClearsCreditsPreservesPricingAndPromotesNativeCost(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "single-cost.db")
+	db, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	if err := db.InsertUsage(&UsageRecord{
+		Source: "codex", SessionID: "s", Model: "gpt-5.5", InputTokens: 1, Timestamp: ts,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.InsertUsage(&UsageRecord{
+		Source: "opencode", SessionID: "native", Model: "gpt-5.5",
+		InputTokens: 10, CostUSD: 999, NativeCostUSD: 1.23,
+		NativeCostKind: "actual", Timestamp: ts.Add(time.Second),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.Exec(`UPDATE usage_records SET codex_credits=42, priced_at=? WHERE source='codex';
+		UPDATE usage_records SET cost_usd=999, price_source='litellm', priced_at=? WHERE source='opencode';
+		DELETE FROM meta WHERE key='migration_007_single_cost'`, ts, ts); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var credits float64
+	var priced int
+	if err := db.db.QueryRow(`SELECT codex_credits, priced_at IS NOT NULL FROM usage_records WHERE source='codex'`).Scan(&credits, &priced); err != nil {
+		t.Fatal(err)
+	}
+	if credits != 0 || priced != 1 {
+		t.Fatalf("single-cost migration: credits=%f priced=%d, want 0 and 1", credits, priced)
+	}
+	var cost float64
+	var priceSource string
+	if err := db.db.QueryRow(`SELECT cost_usd, price_source FROM usage_records WHERE source='opencode'`).Scan(&cost, &priceSource); err != nil {
+		t.Fatal(err)
+	}
+	if cost != 1.23 || priceSource != "source_reported" {
+		t.Fatalf("native migration: cost=%f source=%q, want 1.23 and source_reported", cost, priceSource)
+	}
+}
+
 func TestMatchModelPricingPrefersProviderAndIsDeterministic(t *testing.T) {
 	prices := map[string]ModelPricing{
 		"gpt-5.5":         {Input: 9, Source: "generic"},

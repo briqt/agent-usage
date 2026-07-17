@@ -38,11 +38,8 @@ func TestHermesCollectorClassifiesNativeCosts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if math.Abs(stats.ActualCostUSD-0.30) > 1e-12 {
-		t.Fatalf("actual cost = %.2f, want 0.30", stats.ActualCostUSD)
-	}
-	if math.Abs(stats.SourceEstimatedCostUSD-0.20) > 1e-12 {
-		t.Fatalf("source estimate = %.2f, want 0.20", stats.SourceEstimatedCostUSD)
+	if math.Abs(stats.TotalCost-0.50) > 1e-12 {
+		t.Fatalf("effective cost = %.2f, want source-returned total 0.50", stats.TotalCost)
 	}
 }
 
@@ -83,8 +80,8 @@ func TestHermesCollectorSupportsLegacySchemaWithoutCostColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.TotalTokens != 110 || stats.ActualCostUSD != 0 || stats.SourceEstimatedCostUSD != 0 {
-		t.Fatalf("legacy stats: tokens=%d actual=%f estimated=%f",
-			stats.TotalTokens, stats.ActualCostUSD, stats.SourceEstimatedCostUSD)
+	if stats.TotalTokens != 110 || stats.TotalCost != 0 {
+		t.Fatalf("legacy stats: tokens=%d cost=%f",
+			stats.TotalTokens, stats.TotalCost)
 	}
 }

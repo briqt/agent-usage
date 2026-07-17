@@ -32,11 +32,11 @@ type UsageRecord struct {
 	CacheCreation1hTokens    int64
 	CacheReadInputTokens     int64
 	ReasoningOutputTokens    int64
-	CostUSD                  float64 // API-equivalent USD estimate kept for API compatibility.
-	NativeCostUSD            float64
-	NativeCostKind           string // actual or source_estimate
-	CodexCredits             float64
-	TokenQuality             string // exact or estimated
+	CostUSD                  float64 // Effective USD cost: reported first, token-priced fallback.
+	NativeCostUSD            float64 // Source-returned cost used internally for precedence.
+	NativeCostKind           string  // Internal provenance: actual or source_estimate.
+	CodexCredits             float64 // Deprecated compatibility field; no longer calculated.
+	TokenQuality             string  // exact or estimated
 	PriceSource              string
 	Speed                    string
 	InferenceGeo             string
@@ -295,6 +295,18 @@ func migrate(db *sql.DB) error {
 				 WHERE id IN (SELECT id FROM ranked WHERE duplicate_rank > 1);
 
 				UPDATE usage_records SET token_quality = 'estimated' WHERE source = 'kiro';
+			`,
+		},
+		{
+			"007_single_cost", `
+				UPDATE usage_records SET codex_credits = 0;
+				UPDATE usage_records
+				SET cost_usd = native_cost_usd,
+					price_source = CASE native_cost_kind
+						WHEN 'source_estimate' THEN 'source_reported_estimate'
+						ELSE 'source_reported'
+					END
+				WHERE native_cost_usd > 0;
 			`,
 		},
 	}

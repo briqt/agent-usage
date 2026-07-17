@@ -29,7 +29,7 @@ class BillingTests(unittest.TestCase):
         self.assertEqual(usage.match_pricing("gpt-5.5", prices, "openai")[0], 2)
         self.assertIsNone(usage.match_pricing("gpt-5", prices))
 
-    def test_stats_include_cache_and_output(self):
+    def test_stats_expose_one_cost_and_include_cache_and_output(self):
         records = [{
             "session_id": "s", "input": 6, "output": 426,
             "cache_read": 18258, "cache_create": 11519,
@@ -39,7 +39,22 @@ class BillingTests(unittest.TestCase):
         self.assertEqual(stats["total_tokens"], 30209)
         self.assertEqual(stats["total_output_tokens"], 426)
         self.assertAlmostEqual(stats["cache_hit_rate"], 18258 / 29783, places=4)
-        self.assertEqual(stats["actual_cost_usd"], 0.2)
+        self.assertEqual(stats["total_cost"], 0.135)
+        self.assertEqual(set(stats) & {"api_estimated_cost_usd", "actual_cost_usd", "codex_credits"}, set())
+
+    def test_source_returned_cost_wins_over_token_price(self):
+        records = [{
+            "model": "gpt-test", "provider": "openai", "session_id": "s",
+            "input": 10, "output": 2, "cache_read": 3, "cache_create": 0,
+            "native_cost": 0.42,
+        }]
+        original = usage.fetch_pricing
+        usage.fetch_pricing = lambda: {"openai/gpt-test": [1e-6, 2e-6, 0.5e-6, 0, 0]}
+        try:
+            usage.enrich_costs(records)
+        finally:
+            usage.fetch_pricing = original
+        self.assertEqual(records[0]["cost"], 0.42)
 
     def test_claude_content_blocks_are_deduplicated(self):
         with tempfile.TemporaryDirectory() as directory:

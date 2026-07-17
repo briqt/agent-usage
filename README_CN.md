@@ -199,21 +199,16 @@ agent-usage
 
 ## 费用计算
 
-仪表板明确区分以下计费概念：
+仪表板和 API 只提供一个美元费用字段：`total_cost`。每条用量记录统一采用以下优先级：
 
-- **API 等价估算（USD）**：按公开 API 价格表计算这些 token 的理论成本。为兼容旧 API，`total_cost` 继续返回该值，同时新增语义明确的 `api_estimated_cost_usd`。
-- **来源实际成本（USD）**：数据源原生上报的实际金额，目前保留 OpenCode 以及新版 Hermes 的数据。
-- **来源估算成本（USD）**：由数据源自身估算的金额，不与实际成本或本项目的 API 等价估算混合。
-- **Codex credits**：按公开 Codex rate card 计算的 credits。credits 没有现金价值，绝不按 USD 展示。
+1. 来源返回了大于零的费用时，直接使用该费用。
+2. 否则按照互不重叠的 Token 数量乘以匹配模型的 Token 单价计算。
+3. 既没有来源费用、也无法确定性匹配价格时，记录保持未计价，费用为零。
 
-价格表采用可审计的分层策略：
-
-1. 少量内置官方覆盖表负责 Anthropic 5 分钟/1 小时缓存写入、fast mode 倍率等 LiteLLM 无法完整表达的字段。
-2. [LiteLLM 模型价格数据库](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) 提供广泛的模型覆盖。
-3. 只做确定性的模型名或 provider + 模型名匹配；无法匹配的模型明确标记为未计价，不使用子字符串猜测。
+Token 计价回退使用少量内置官方覆盖表补充 Anthropic 5 分钟/1 小时缓存写入、fast mode 倍率等产品字段，并由 [LiteLLM 模型价格数据库](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) 提供广泛模型覆盖。模型只做精确匹配或 provider + 模型名匹配，不使用子字符串猜测。
 
 ```
-API 等价估算 =
+Token 计价回退 =
        非缓存输入 × 输入价格
      + 5 分钟缓存写入 × 5 分钟缓存写入价格
      + 1 小时缓存写入 × 1 小时缓存写入价格
@@ -221,13 +216,13 @@ API 等价估算 =
      + 输出 × 输出价格
 ```
 
-所有 token 分量互不重叠；适用的速度与推理区域修正会在分量计价后应用。每次价格同步都会重新计算历史 API 等价估算（包括原本非零的记录），但不会覆盖来源实际成本或来源估算成本。
+所有 Token 分量互不重叠；适用的速度与推理区域修正会在分量计价后应用。每次价格同步都会按照上述优先级重算唯一的费用字段，来源返回的费用始终优先。Codex 与其他来源一样使用 Token 单价回退，不再提供独立的 Credits 汇总。
 
 Claude Code 使用 session + request ID + message ID 去重，因为同一次 API 返回可能重复出现在多个 content block 事件中。Kiro 无法提供精确 token，API 统计会明确标注其记录为估算。
 
 首次升级到 v1.14 时会保留 Claude 历史数据并进行保守去重：删除零 Token 记录，并合并同一五分钟响应簇内 Token 明细完全相同的记录。会话、提示事件和扫描位点都会保留，因此源文件已经删除的历史也不会丢失。旧数据未提供缓存 TTL 时继续按基础缓存写入价计算；新采集数据会区分 5 分钟和 1 小时缓存写入。迁移可重复安全执行，但升级前仍建议备份 `agent-usage.db`。
 
-官方依据：[Anthropic 价格](https://platform.claude.com/docs/en/about-claude/pricing)、[Anthropic Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)、[OpenAI Codex rate card](https://help.openai.com/en/articles/20001106)、[OpenAI credits](https://help.openai.com/en/articles/12642688)。
+官方依据：[Anthropic 价格](https://platform.claude.com/docs/en/about-claude/pricing)、[Anthropic Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)。
 
 ## API 接口
 
@@ -235,7 +230,7 @@ Claude Code 使用 session + request ID + message ID 去重，因为同一次 AP
 
 | 接口 | 说明 |
 |------|------|
-| `GET /api/stats` | 汇总：API 等价估算、来源实际/估算成本、Codex credits、token 质量、token、会话数、Prompt 数、API 调用数 |
+| `GET /api/stats` | 汇总：唯一总费用、Token 质量、Token、会话数、Prompt 数、API 调用数 |
 | `GET /api/cost-by-model` | 按模型分组的费用 |
 | `GET /api/cost-over-time` | 费用时序（支持 `granularity`） |
 | `GET /api/tokens-over-time` | Token 用量时序（支持 `granularity`） |

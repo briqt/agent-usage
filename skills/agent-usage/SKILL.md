@@ -37,7 +37,7 @@ Where `SKILL_DIR` is the directory containing this SKILL.md file.
 
 ### Step 2a: API Mode (preferred)
 
-Use `query-api.sh` to call the agent-usage REST API. This is faster and exposes pricing provenance, native costs, token quality, and deterministic server-side billing.
+Use `query-api.sh` to call the agent-usage REST API. This is faster and exposes the unified cost, token quality, and deterministic server-side billing.
 
 ```bash
 bash SKILL_DIR/scripts/query-api.sh <command> [options]
@@ -46,7 +46,7 @@ bash SKILL_DIR/scripts/query-api.sh <command> [options]
 Commands:
 | Command | Description | Key Options |
 |---------|-------------|-------------|
-| `stats` | API estimate, actual/source estimate, credits, token totals/quality, sessions, prompts, calls | `--from`, `--to`, `--source`, `--model` |
+| `stats` | Unified total cost, token totals/quality, sessions, prompts, calls | `--from`, `--to`, `--source`, `--model` |
 | `cost-by-model` | Cost breakdown per model | `--from`, `--to`, `--source` |
 | `cost-over-time` | Cost trend over time | `--from`, `--to`, `--granularity`, `--source`, `--model` |
 | `tokens-over-time` | Token usage trend | `--from`, `--to`, `--granularity`, `--source`, `--model` |
@@ -63,7 +63,7 @@ Options:
 
 ### Step 2b: Local Mode (fallback)
 
-Use `usage.py` to parse local sources directly. No server is needed, but results remain an API-equivalent estimate and do not include every server collector or native billing field.
+Use `usage.py` to parse local sources directly. No server is needed. It uses a source-returned cost when available, then falls back to Token pricing.
 
 ```bash
 python3 SKILL_DIR/scripts/usage.py <command> [options]
@@ -84,12 +84,10 @@ Same `--from`, `--to`, `--source` options as API mode. Additional: `-n N` for to
 After getting JSON output from either backend:
 
 1. Parse the JSON response
-2. Label `api_estimated_cost_usd` / legacy `total_cost` as an **API-equivalent estimate**, not money necessarily charged
-3. Label `actual_cost_usd` as source-reported actual cost and `source_estimated_cost_usd` as a source estimate
-4. Present `codex_credits` as credits, never as USD or a cash conversion
-5. Mention estimated-token or unpriced records when either count is non-zero
-6. Format USD as `$X.XX`, credits with the `credits` suffix, and tokens as `X.XK` or `X.XM`
-7. Answer the user's specific question; use tables only for multi-row data and add a brief insight when useful
+2. Present `total_cost` as the single cost: source-returned cost first, Token-priced fallback second
+3. Mention estimated-token or unpriced records when either count is non-zero
+4. Format USD as `$X.XX` and tokens as `X.XK` or `X.XM`
+5. Answer the user's specific question; use tables only for multi-row data and add a brief insight when useful
 
 ### Time Range Mapping
 
@@ -136,8 +134,8 @@ User: "Token usage trend this week by hour"
 
 ## Notes
 
-- API-equivalent estimates use a small official override table first and LiteLLM for broad coverage. Unmatched models remain unpriced; they are not fuzzy-matched.
-- Local mode has fewer data sources and billing fields. Prefer the server for migrations, native costs, Codex credits, token-quality flags, and complete pricing provenance.
+- Token-price fallback uses a small official override table first and LiteLLM for broad coverage. Unmatched models without a source-returned cost remain unpriced; they are not fuzzy-matched.
+- Local mode has fewer data sources and billing fields. Prefer the server for migrations, token-quality flags, and complete pricing provenance.
 - Claude rows are deduplicated using session + request ID + message ID when those identifiers are available.
 - Kiro token counts are estimates. Do not describe them as exact.
 - For complete billing semantics, deploy the agent-usage server: https://github.com/briqt/agent-usage

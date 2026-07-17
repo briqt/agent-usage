@@ -9,14 +9,16 @@ import (
 type billingRecord struct {
 	id                                  int64
 	source, provider, model, speed, geo string
+	nativeCost                          float64
+	nativeCostKind                      string
 	input, output, cacheCreate, cache5m int64
 	cache1h, cacheRead                  int64
 	timestamp                           time.Time
 }
 
-// RecalcCosts refreshes every API-equivalent estimate from the current rate
-// card. Native costs are never overwritten. Unknown models remain explicitly
-// unpriced instead of being matched by substring.
+// RecalcCosts refreshes the single effective cost for every record. A
+// source-reported cost wins; token pricing is the fallback. Unknown models
+// without a reported cost remain unpriced.
 func (d *DB) RecalcCosts(allPrices map[string]ModelPricing) error {
 	return d.recalcCosts(allPrices, false)
 }
@@ -33,7 +35,8 @@ func (d *DB) recalcCosts(allPrices map[string]ModelPricing, onlyPending bool) er
 
 	query := `SELECT id,source,provider,model,input_tokens,output_tokens,
 		cache_creation_input_tokens,cache_creation_5m_tokens,cache_creation_1h_tokens,
-		cache_read_input_tokens,speed,inference_geo,timestamp FROM usage_records`
+		cache_read_input_tokens,speed,inference_geo,native_cost_usd,native_cost_kind,
+		timestamp FROM usage_records`
 	if onlyPending {
 		query += " WHERE priced_at IS NULL"
 	}
@@ -46,7 +49,7 @@ func (d *DB) recalcCosts(allPrices map[string]ModelPricing, onlyPending bool) er
 		var r billingRecord
 		if err := rows.Scan(&r.id, &r.source, &r.provider, &r.model, &r.input, &r.output,
 			&r.cacheCreate, &r.cache5m, &r.cache1h, &r.cacheRead, &r.speed, &r.geo,
-			&r.timestamp); err != nil {
+			&r.nativeCost, &r.nativeCostKind, &r.timestamp); err != nil {
 			rows.Close()
 			return err
 		}
@@ -67,7 +70,7 @@ func (d *DB) recalcCosts(allPrices map[string]ModelPricing, onlyPending bool) er
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS billing_updates (
-		id INTEGER PRIMARY KEY, cost_usd REAL, codex_credits REAL,
+		id INTEGER PRIMARY KEY, cost_usd REAL,
 		price_source TEXT, priced_at DATETIME
 	); DELETE FROM billing_updates;`); err != nil {
 		return err
@@ -82,31 +85,36 @@ func (d *DB) recalcCosts(allPrices map[string]ModelPricing, onlyPending bool) er
 			end = len(records)
 		}
 		var statement strings.Builder
-		statement.WriteString("INSERT INTO billing_updates(id,cost_usd,codex_credits,price_source,priced_at) VALUES ")
-		args := make([]any, 0, (end-start)*5)
+		statement.WriteString("INSERT INTO billing_updates(id,cost_usd,price_source,priced_at) VALUES ")
+		args := make([]any, 0, (end-start)*4)
 		for i, r := range records[start:end] {
 			if i > 0 {
 				statement.WriteByte(',')
 			}
-			statement.WriteString("(?,?,?,?,?)")
+			statement.WriteString("(?,?,?,?)")
 			cost := 0.0
 			priceSource := "unknown"
-			if p, ok := matcher.match(r.provider, r.model); ok {
-				cost = calculateAPIEquivalent(r, p)
-				priceSource = p.Source
-				if priceSource == "" {
-					priceSource = "litellm"
+			if r.nativeCost > 0 {
+				cost = r.nativeCost
+				priceSource = nativePriceSource(r.nativeCostKind)
+			} else {
+				if p, ok := matcher.match(r.provider, r.model); ok {
+					cost = calculateTokenCost(r, p)
+					priceSource = p.Source
+					if priceSource == "" {
+						priceSource = "litellm"
+					}
 				}
 			}
-			args = append(args, r.id, cost, calculateCodexCredits(r), priceSource, now)
+			args = append(args, r.id, cost, priceSource, now)
 		}
 		if _, err := tx.Exec(statement.String(), args...); err != nil {
 			return err
 		}
 	}
 	if _, err := tx.Exec(`UPDATE usage_records
-		SET (cost_usd,codex_credits,price_source,priced_at) =
-			(SELECT cost_usd,codex_credits,price_source,priced_at
+		SET (cost_usd,price_source,priced_at) =
+			(SELECT cost_usd,price_source,priced_at
 			 FROM billing_updates WHERE billing_updates.id=usage_records.id)
 		WHERE id IN (SELECT id FROM billing_updates)`); err != nil {
 		return err
@@ -114,7 +122,18 @@ func (d *DB) recalcCosts(allPrices map[string]ModelPricing, onlyPending bool) er
 	return tx.Commit()
 }
 
-func calculateAPIEquivalent(r billingRecord, p ModelPricing) float64 {
+func nativePriceSource(kind string) string {
+	switch kind {
+	case "actual":
+		return "source_reported"
+	case "source_estimate":
+		return "source_reported_estimate"
+	default:
+		return "source_reported"
+	}
+}
+
+func calculateTokenCost(r billingRecord, p ModelPricing) float64 {
 	cache5m, cache1h := r.cache5m, r.cache1h
 	if cache5m == 0 && cache1h == 0 {
 		cache5m = r.cacheCreate
@@ -194,38 +213,4 @@ func (m pricingMatcher) match(provider, model string) (ModelPricing, bool) {
 
 func matchModelPricing(provider, model string, all map[string]ModelPricing) (ModelPricing, bool) {
 	return newPricingMatcher(all).match(provider, model)
-}
-
-type creditRate struct {
-	input, cached, output float64
-}
-
-var codexCreditRates = map[string]creditRate{
-	"gpt-5.6-sol":   {125, 12.5, 750},
-	"terra":         {62.5, 6.25, 375},
-	"luna":          {25, 2.5, 150},
-	"gpt-5.5":       {125, 12.5, 750},
-	"gpt-5.5-cyber": {500, 50, 3000},
-	"gpt-5.4":       {62.5, 6.25, 375},
-	"gpt-5.4-mini":  {18.75, 1.875, 113},
-	"gpt-5.3-codex": {43.75, 4.375, 350},
-	"gpt-5.2":       {43.75, 4.375, 350},
-}
-
-var codexCreditEffectiveAt = time.Date(2026, time.April, 2, 0, 0, 0, 0, time.UTC)
-
-func calculateCodexCredits(r billingRecord) float64 {
-	if r.source != "codex" || r.timestamp.Before(codexCreditEffectiveAt) {
-		return 0
-	}
-	model := strings.ToLower(strings.TrimSpace(r.model))
-	model = strings.TrimPrefix(model, "openai/")
-	rate, ok := codexCreditRates[model]
-	if !ok {
-		return 0
-	}
-	const million = 1_000_000
-	return (float64(r.input+r.cacheCreate)*rate.input +
-		float64(r.cacheRead)*rate.cached +
-		float64(r.output)*rate.output) / million
 }

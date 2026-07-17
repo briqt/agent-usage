@@ -50,11 +50,7 @@ func TestOpenCodeCollectorPreservesProviderAndNativeCost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantAPI = 15.5e-6
-	if math.Abs(stats.TotalCost-wantAPI) > 1e-12 {
-		t.Fatalf("provider-qualified API estimate = %.12f, want %.12f", stats.TotalCost, wantAPI)
-	}
-	if math.Abs(stats.ActualCostUSD-0.42) > 1e-12 {
-		t.Fatalf("native actual cost = %.2f, want 0.42", stats.ActualCostUSD)
+	if math.Abs(stats.TotalCost-0.42) > 1e-12 {
+		t.Fatalf("effective cost = %.2f, want source-returned 0.42", stats.TotalCost)
 	}
 }

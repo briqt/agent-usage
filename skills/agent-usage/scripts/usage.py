@@ -112,7 +112,7 @@ def match_pricing(model, all_prices, provider=""):
 
 def calc_cost(input_t, output_t, cache_create, cache_read, prices,
               cache_create_5m=0, cache_create_1h=0):
-    """Calculate API-equivalent USD from non-overlapping token components."""
+    """Calculate token-priced USD from non-overlapping token components."""
     if not cache_create_5m and not cache_create_1h:
         cache_create_5m = cache_create
     cache_1h_price = prices[4] if len(prices) > 4 else prices[3]
@@ -422,15 +422,19 @@ def collect(from_dt, to_dt, source=None):
 
 
 def enrich_costs(records):
-    """Add deterministic API-equivalent estimates and pricing status."""
+    """Use a source-returned cost first, then deterministic token pricing."""
     prices = fetch_pricing()
     for r in records:
         p = match_pricing(r["model"], prices, r.get("provider", ""))
-        r["priced"] = p is not None
-        r["cost"] = calc_cost(
-            r["input"], r["output"], r["cache_create"], r["cache_read"], p,
-            r.get("cache_create_5m", 0), r.get("cache_create_1h", 0),
-        ) if p else 0
+        native_cost = r.get("native_cost", 0) or 0
+        r["priced"] = native_cost > 0 or p is not None
+        if native_cost > 0:
+            r["cost"] = native_cost
+        else:
+            r["cost"] = calc_cost(
+                r["input"], r["output"], r["cache_create"], r["cache_read"], p,
+                r.get("cache_create_5m", 0), r.get("cache_create_1h", 0),
+            ) if p else 0
     return records
 
 
@@ -440,11 +444,9 @@ def cmd_stats(records):
     sessions = set(r["session_id"] for r in records)
     total_input = sum(r["input"] + r["cache_read"] + r["cache_create"] for r in records)
     cache_read = sum(r["cache_read"] for r in records)
-    api_estimate = round(sum(r["cost"] for r in records), 4)
+    total_cost = round(sum(r["cost"] for r in records), 4)
     return {
-        "total_cost": api_estimate,
-        "api_estimated_cost_usd": api_estimate,
-        "actual_cost_usd": round(sum(r.get("native_cost", 0) for r in records), 4),
+        "total_cost": total_cost,
         "total_tokens": total_input + sum(r["output"] for r in records),
         "total_output_tokens": sum(r["output"] for r in records),
         "cache_hit_rate": round(cache_read / total_input, 4) if total_input else 0,
