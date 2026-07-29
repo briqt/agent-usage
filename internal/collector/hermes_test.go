@@ -249,3 +249,151 @@ func TestHermesCollector_NonExistentPath(t *testing.T) {
 		t.Errorf("Scan on non-existent path should not error, got: %v", err)
 	}
 }
+
+func TestHermesCollector_SkipsUnchangedDB(t *testing.T) {
+	db := tempDB(t)
+	dir := t.TempDir()
+
+	hermesDBPath := filepath.Join(dir, "state.db")
+	createHermesTestDB(t, hermesDBPath)
+	hdb, _ := sql.Open("sqlite", hermesDBPath)
+	ts := float64(time.Date(2026, 6, 5, 10, 0, 0, 0, time.UTC).Unix())
+	hdb.Exec(`INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens)
+		VALUES (?, ?, ?, ?, ?, ?)`, "sess-1", "telegram", "claude-opus-4-6", ts, 1000, 100)
+	hdb.Close()
+
+	cx := NewHermesCollector(db, []string{dir})
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("first Scan: %v", err)
+	}
+
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	if sessions, _ := db.GetSessions(from, to, "hermes", ""); len(sessions) != 1 {
+		t.Fatalf("after first scan: expected 1 session, got %d", len(sessions))
+	}
+
+	// Wipe the derived rows without touching the source database. A scan that
+	// re-reads the database would restore them; a scan that correctly recognises
+	// the fingerprint as unchanged leaves them gone. This is the only way to
+	// observe "skipped" from the outside.
+	if err := db.DeleteBySourceProject("hermes", "hermes"); err != nil {
+		t.Fatalf("DeleteBySourceProject: %v", err)
+	}
+
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("second Scan: %v", err)
+	}
+	if sessions, _ := db.GetSessions(from, to, "hermes", ""); len(sessions) != 0 {
+		t.Errorf("unchanged database was re-scanned: expected 0 sessions, got %d", len(sessions))
+	}
+}
+
+func TestHermesCollector_IncrementalPromptEvents(t *testing.T) {
+	db := tempDB(t)
+	dir := t.TempDir()
+
+	hermesDBPath := filepath.Join(dir, "state.db")
+	createHermesTestDB(t, hermesDBPath)
+	hdb, _ := sql.Open("sqlite", hermesDBPath)
+	ts := float64(time.Date(2026, 6, 5, 10, 0, 0, 0, time.UTC).Unix())
+	hdb.Exec(`INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens)
+		VALUES (?, ?, ?, ?, ?, ?)`, "sess-1", "telegram", "claude-opus-4-6", ts, 1000, 100)
+	hdb.Exec(`INSERT INTO messages (session_id, role, content, timestamp) VALUES (?,?,?,?)`,
+		"sess-1", "user", "first", ts+10)
+	hdb.Exec(`INSERT INTO messages (session_id, role, content, timestamp) VALUES (?,?,?,?)`,
+		"sess-1", "assistant", "reply", ts+15)
+	hdb.Close()
+
+	cx := NewHermesCollector(db, []string{dir})
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("first Scan: %v", err)
+	}
+
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	sessions, _ := db.GetSessions(from, to, "hermes", "")
+	if len(sessions) != 1 || sessions[0].Prompts != 1 {
+		t.Fatalf("after first scan: expected 1 prompt, got %+v", sessions)
+	}
+
+	// Append a new prompt; the watermark must pick it up without re-reading the
+	// rows already consumed.
+	hdb, _ = sql.Open("sqlite", hermesDBPath)
+	hdb.Exec(`INSERT INTO messages (session_id, role, content, timestamp) VALUES (?,?,?,?)`,
+		"sess-1", "user", "second", ts+30)
+	hdb.Close()
+
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("second Scan: %v", err)
+	}
+	sessions, _ = db.GetSessions(from, to, "hermes", "")
+	if len(sessions) != 1 {
+		t.Fatalf("expected 1 session, got %d", len(sessions))
+	}
+	if sessions[0].Prompts != 2 {
+		t.Errorf("expected 2 prompts after incremental append, got %d", sessions[0].Prompts)
+	}
+}
+
+func TestHermesCollector_ChangedProfileKeepsOtherProjects(t *testing.T) {
+	// Regression guard: the per-scan replace is scoped to one project. A global
+	// replace combined with skipping unchanged databases would discard the records
+	// of every database that got skipped.
+	db := tempDB(t)
+	dir := t.TempDir()
+
+	globalDBPath := filepath.Join(dir, "state.db")
+	createHermesTestDB(t, globalDBPath)
+	gdb, _ := sql.Open("sqlite", globalDBPath)
+	ts1 := float64(time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC).Unix())
+	gdb.Exec(`INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens)
+		VALUES (?, ?, ?, ?, ?, ?)`, "global-1", "telegram", "claude-opus-4-6", ts1, 1000, 100)
+	gdb.Close()
+
+	profileDir := filepath.Join(dir, "profiles", "my-profile")
+	os.MkdirAll(profileDir, 0o755)
+	profileDBPath := filepath.Join(profileDir, "state.db")
+	createHermesTestDB(t, profileDBPath)
+	pdb, _ := sql.Open("sqlite", profileDBPath)
+	ts2 := float64(time.Date(2026, 6, 2, 10, 0, 0, 0, time.UTC).Unix())
+	pdb.Exec(`INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens)
+		VALUES (?, ?, ?, ?, ?, ?)`, "profile-1", "wecom", "claude-opus-4-6", ts2, 2000, 200)
+	pdb.Close()
+
+	cx := NewHermesCollector(db, []string{dir})
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("first Scan: %v", err)
+	}
+
+	from := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	if sessions, _ := db.GetSessions(from, to, "hermes", ""); len(sessions) != 2 {
+		t.Fatalf("after first scan: expected 2 sessions, got %d", len(sessions))
+	}
+
+	// Touch only the profile database. The global one is now unchanged and will be
+	// skipped — its records must survive.
+	pdb, _ = sql.Open("sqlite", profileDBPath)
+	pdb.Exec(`UPDATE sessions SET input_tokens = 3000 WHERE id = 'profile-1'`)
+	pdb.Close()
+
+	if err := cx.Scan(); err != nil {
+		t.Fatalf("second Scan: %v", err)
+	}
+
+	sessions, _ := db.GetSessions(from, to, "hermes", "")
+	if len(sessions) != 2 {
+		t.Fatalf("expected both sessions to survive, got %d", len(sessions))
+	}
+	byID := map[string]int64{}
+	for _, s := range sessions {
+		byID[s.SessionID] = s.Tokens
+	}
+	if byID["global-1"] != 1100 {
+		t.Errorf("global project was clobbered: expected 1100 tokens, got %d", byID["global-1"])
+	}
+	if byID["profile-1"] != 3200 {
+		t.Errorf("changed profile not updated: expected 3200 tokens, got %d", byID["profile-1"])
+	}
+}

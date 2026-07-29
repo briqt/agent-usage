@@ -68,8 +68,13 @@ type PromptEvent struct {
 
 // Open creates or opens a SQLite database at the given path, enables WAL mode,
 // and runs schema migrations.
+//
+// synchronous=NORMAL is safe under WAL (a crash can lose the tail of the last
+// transaction but cannot corrupt the database) and removes an fsync per commit.
+// The collectors commit continuously, so FULL made every scan cycle fsync-bound
+// and inflated writes reaching the host filesystem.
 func Open(path string) (*DB, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)&_pragma=synchronous(normal)")
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +87,20 @@ func Open(path string) (*DB, error) {
 
 // Close closes the underlying database connection.
 func (d *DB) Close() error { return d.db.Close() }
+
+// Checkpoint folds the write-ahead log back into the main database file and
+// truncates it.
+//
+// The collectors write on every scan interval, and under a steady write load
+// SQLite's automatic checkpointing can be starved indefinitely — a 50MB WAL was
+// observed against an 82MB database. An oversized WAL makes every read walk it
+// before touching the main file, so read volume grows without bound.
+func (d *DB) Checkpoint() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	_, err := d.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return err
+}
 
 func migrate(db *sql.DB) error {
 	_, err := db.Exec(`
@@ -197,6 +216,16 @@ func migrate(db *sql.DB) error {
 	for _, statement := range billingAlters {
 		_, _ = db.Exec(statement)
 	}
+
+	// Partial index for RecalcPendingCosts, which runs after every collector scan
+	// and selects only rows that have never been priced. Without it each pass
+	// full-scans usage_records; the index holds just the unpriced tail.
+	//
+	// Must come after billingAlters: on a database created before the billing
+	// columns existed, CREATE TABLE IF NOT EXISTS is a no-op and priced_at only
+	// appears once the ALTER above has run. Creating the index any earlier fails
+	// with "no such column" and takes the whole migration — and startup — with it.
+	_, _ = db.Exec("CREATE INDEX IF NOT EXISTS idx_usage_unpriced ON usage_records(id) WHERE priced_at IS NULL")
 
 	// Versioned migrations: each runs once, tracked via meta table.
 	migrations := []struct {

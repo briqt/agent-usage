@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-07-29
+
+### Performance
+
+- **Hermes collector no longer re-reads its source databases on every scan.** Each `state.db` is gated on a change fingerprint (size + mtime of the database *and* its `-wal`, since a WAL write leaves the main file untouched), so an idle instance costs two `stat` calls per interval. Previously every 60s interval opened each database and ran an unbounded `SELECT ... FROM messages ORDER BY timestamp`, which planned as a full table scan plus an external sort — against a table carrying message content and reasoning traces (250MB in one real profile) — to retrieve a few hundred prompts.
+- **Prompt events are now appended from a rowid watermark** (`messages.id > ?`) instead of being deleted and re-inserted wholesale. The query plan changes from `SCAN messages` + `USE TEMP B-TREE FOR ORDER BY` to `SEARCH messages USING INTEGER PRIMARY KEY`. The watermark comes from `MAX(id)`, so messages filtered out by `role`/`timestamp` are stepped over rather than re-examined on every scan forever.
+- **Added the partial index `idx_usage_unpriced`** on `usage_records(id) WHERE priced_at IS NULL`. `RecalcPendingCosts` runs after every collector scan and previously full-scanned the whole table (116k rows in one real deployment) to find the unpriced tail.
+- **Database opens with `synchronous=NORMAL`**, removing an fsync per commit. This is safe under WAL: a crash can lose the tail of the last transaction but cannot corrupt the database.
+- **Added a periodic `wal_checkpoint(TRUNCATE)`.** Under the collectors' continuous write load SQLite's automatic checkpointing can be starved indefinitely; a 50MB WAL against an 82MB database was observed, and an oversized WAL makes every read walk it before reaching the main file.
+
+### Fixed
+
+- Hermes usage records and sessions are now replaced within a single database's project scope (`DeleteBySourceProject`) rather than source-wide. A source-wide delete combined with skipping unchanged databases would have discarded the records of every database that got skipped.
+- `idx_usage_unpriced` is created after the billing `ALTER TABLE` statements. On a database predating the billing columns, `CREATE TABLE IF NOT EXISTS` is a no-op and `priced_at` only exists once the `ALTER` has run, so creating the index alongside the main schema failed with "no such column" and took the whole migration — and startup — with it.
+
+### Changed
+
+- Billing semantics and provenance corrected, and cost calculation unified through `internal/storage/billing.go`: costs reported by a source take precedence over token-priced estimates, provenance is recorded per record (`price_source`, `native_cost_kind`, `token_quality`), and `priced_at` marks rows as priced so routine passes only visit new ones. Adds columns to `usage_records` and `pricing` (applied automatically) and provenance fields to API responses.
+
 ## [1.13.0] - 2026-07-14
 
 ### Added

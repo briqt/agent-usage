@@ -101,6 +101,18 @@ func main() {
 		}
 	}()
 
+	// Periodic WAL checkpoint. The collectors commit on every scan interval, which
+	// can starve SQLite's automatic checkpointing indefinitely and let the WAL grow
+	// past the database itself — inflating reads, since each one walks the log first.
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		for range ticker.C {
+			if err := db.Checkpoint(); err != nil {
+				log.Printf("wal checkpoint: %v", err)
+			}
+		}
+	}()
+
 	// Start web server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.BindAddress, cfg.Server.Port)
 	srv := server.New(db, addr)

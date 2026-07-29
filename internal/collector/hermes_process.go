@@ -9,17 +9,27 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func (c *HermesCollector) processDB(dbPath, project string) error {
+// processDB re-syncs one Hermes database and returns the new prompt watermark.
+//
+// Sessions are fully replaced within this database's project scope, because
+// Hermes accumulates tokens on the session row in place and the usage_records
+// dedup index covers the token columns — a grown session would otherwise be
+// stored as an additional row instead of replacing the previous one. Prompt
+// events, by contrast, are append-only and resume from lastRowID.
+func (c *HermesCollector) processDB(dbPath, project string, lastRowID int64) (int64, error) {
 	hermesDB, err := sql.Open("sqlite", dbPath+"?mode=ro&_pragma=busy_timeout(3000)")
 	if err != nil {
-		return fmt.Errorf("open hermes db: %w", err)
+		return 0, fmt.Errorf("open hermes db: %w", err)
 	}
 	defer hermesDB.Close()
 
-	if err := c.processSessions(hermesDB, project); err != nil {
-		return err
+	if err := c.db.DeleteBySourceProject("hermes", project); err != nil {
+		return 0, fmt.Errorf("clear project %q: %w", project, err)
 	}
-	return c.processPromptEvents(hermesDB)
+	if err := c.processSessions(hermesDB, project); err != nil {
+		return 0, err
+	}
+	return c.processPromptEvents(hermesDB, lastRowID)
 }
 
 func (c *HermesCollector) processSessions(hermesDB *sql.DB, project string) error {
@@ -154,15 +164,38 @@ func sqliteTableColumns(db *sql.DB, table string) (map[string]bool, error) {
 	return columns, rows.Err()
 }
 
-func (c *HermesCollector) processPromptEvents(hermesDB *sql.DB) error {
+// processPromptEvents appends user prompts with a rowid above lastRowID and
+// returns the new watermark.
+//
+// messages.id is INTEGER PRIMARY KEY AUTOINCREMENT — a rowid alias on an
+// append-only table — so `id > ?` is a B-tree range scan touching only new rows.
+// The previous unbounded form planned as `SCAN messages` plus
+// `USE TEMP B-TREE FOR ORDER BY`: a full scan of a table whose rows carry
+// message content and reasoning traces (250MB in one real profile), plus an
+// external sort, every scan interval, to retrieve a few hundred prompts. Ordering
+// is not needed — the rows are inserted, not streamed in order.
+//
+// The watermark comes from MAX(id) rather than from the returned rows, so rows
+// excluded by the role/timestamp filter are stepped over instead of being
+// re-examined forever. It is read before the range query and used as the upper
+// bound, so rows appended mid-scan are left for the next pass rather than skipped.
+func (c *HermesCollector) processPromptEvents(hermesDB *sql.DB, lastRowID int64) (int64, error) {
+	var maxRowID int64
+	if err := hermesDB.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM messages`).Scan(&maxRowID); err != nil {
+		return 0, fmt.Errorf("query prompt watermark: %w", err)
+	}
+	if maxRowID <= lastRowID {
+		return lastRowID, nil
+	}
+
 	rows, err := hermesDB.Query(`
 		SELECT session_id, timestamp
 		FROM messages
-		WHERE role = 'user' AND timestamp IS NOT NULL AND timestamp > 0
-		ORDER BY timestamp
-	`)
+		WHERE id > ? AND id <= ?
+			AND role = 'user' AND timestamp IS NOT NULL AND timestamp > 0
+	`, lastRowID, maxRowID)
 	if err != nil {
-		return fmt.Errorf("query prompt events: %w", err)
+		return 0, fmt.Errorf("query prompt events: %w", err)
 	}
 	defer rows.Close()
 
@@ -182,11 +215,13 @@ func (c *HermesCollector) processPromptEvents(hermesDB *sql.DB) error {
 		})
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate prompt events: %w", err)
+		return 0, fmt.Errorf("iterate prompt events: %w", err)
 	}
 
 	if len(events) > 0 {
-		return c.db.InsertPromptBatch(events)
+		if err := c.db.InsertPromptBatch(events); err != nil {
+			return 0, err
+		}
 	}
-	return nil
+	return maxRowID, nil
 }
