@@ -10,13 +10,13 @@
 
 **[English](README.md)**
 
-统一采集 Claude Code、Codex、OpenClaw、OpenCode、kiro、Pi、Hermes Agent 的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
+统一采集 Claude Code、Codex、OpenClaw、OpenCode、kiro、Pi、Oh My Pi、Grok Build、Hermes Agent 的本地会话数据，自动计算费用，通过 Web 仪表板展示 token 用量、费用趋势和会话明细。
 
 ![仪表板](docs/dashboard.png)
 
 ## 特性
 
-- 📁 **本地文件解析** —— 直接读取 Claude Code、Codex CLI、OpenClaw、Pi 的会话文件、OpenCode 的 SQLite 数据库、kiro 的会话/数据库文件和 Hermes Agent 的 state 数据库
+- 📁 **本地文件解析** —— 直接读取 Claude Code、Codex CLI、OpenClaw、Pi、Oh My Pi、Grok Build 的会话文件、OpenCode 的 SQLite 数据库、kiro 的会话/数据库文件和 Hermes Agent 的 state 数据库
 - 💰 **自动费用计算** —— 从 [litellm](https://github.com/BerriAI/litellm) 获取模型价格，价格更新后自动回填历史记录
 - 🗄️ **SQLite 存储** —— 单文件、零运维、数据可修正
 - 📊 **Web 仪表板** —— 暗色主题 UI，ECharts 图表：费用分布、token 趋势、会话列表
@@ -34,7 +34,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-默认 `docker-compose.yml` 不挂载任何 agent 数据目录。请根据你实际安装的 agent 取消对应 volume 的注释（Claude Code、Codex、OpenClaw、OpenCode、kiro、Pi、Hermes）。数据持久化在 `./data/` 目录。
+默认 `docker-compose.yml` 不挂载任何 agent 数据目录。请根据你实际安装的 agent 取消对应 volume 的注释（Claude Code、Codex、OpenClaw、OpenCode、kiro、Pi、Oh My Pi、Grok Build、Hermes）。数据持久化在 `./data/` 目录。
 
 > **注意：** 只启用你实际安装的 agent 的挂载。Docker 会以 root 身份自动创建不存在的宿主机目录，这会干扰 `npx skills add` 等通过目录是否存在来检测已安装 agent 的工具。
 
@@ -92,6 +92,16 @@ collectors:
     paths:
       - "~/.local/share/kiro-cli/data.sqlite3"
     scan_interval: 60s
+  omp:
+    enabled: true
+    paths:
+      - "~/.omp/agent/sessions"
+    scan_interval: 60s
+  grok:
+    enabled: true
+    paths:
+      - "~/.grok/sessions"
+    scan_interval: 60s
   hermes:
     enabled: true
     paths:
@@ -138,6 +148,8 @@ open http://localhost:9800
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
 | [kiro](https://kiro.dev) | `~/.local/share/kiro-cli/data.sqlite3` | SQLite |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<工作区>/<会话>.jsonl` | JSONL |
+| [Oh My Pi](https://github.com/can1357/oh-my-pi) | `~/.omp/agent/sessions/**/*.jsonl` | JSONL |
+| [Grok Build](https://github.com/xai-org/grok-build) | `~/.grok/sessions/<工作区>/<会话>/updates.jsonl` | JSONL |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `~/.hermes/state.db` + `~/.hermes/profiles/*/state.db` | SQLite |
 
 ### 添加新数据源
@@ -153,7 +165,7 @@ open http://localhost:9800
 
 Web 仪表板提供：
 
-- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/kiro/Pi/Hermes）、自动刷新
+- **吸顶控制栏** —— 时间预设、粒度、来源筛选（Claude/Codex/OpenClaw/OpenCode/kiro/Pi/Oh My Pi/Grok Build/Hermes）、自动刷新
 - **汇总卡片** —— 总 Tokens、总费用、会话数、Prompt 数、API 调用数
 - **Token 用量** —— 堆叠柱状图（输入/输出/缓存读取/缓存写入）
 - **费用趋势** —— 按模型堆叠柱状图，颜色映射一致
@@ -183,6 +195,10 @@ agent-usage
 │   │   ├── kiro_process.go     # kiro SQLite 解析，兼容旧 JSON/JSONL
 │   │   ├── pi.go               # Pi coding agent 会话扫描
 │   │   ├── pi_process.go       # Pi coding agent JSONL 解析
+│   │   ├── omp.go              # Oh My Pi 递归会话扫描
+│   │   ├── omp_process.go      # Oh My Pi 精确用量解析
+│   │   ├── grok.go             # Grok Build 会话扫描
+│   │   ├── grok_process.go     # Grok 完成轮次用量解析
 │   │   ├── hermes.go           # Hermes Agent state.db 扫描
 │   │   └── hermes_process.go   # Hermes Agent SQLite 解析
 │   ├── pricing/                # litellm 价格获取 + 计费公式
@@ -226,7 +242,7 @@ Claude Code 使用 session + request ID + message ID 去重，因为同一次 AP
 
 ## API 接口
 
-所有接口支持 `from` 和 `to`（YYYY-MM-DD）查询参数。可选：`source`（`claude`、`codex`、`openclaw`、`opencode`、`kiro`、`pi`、`hermes`）按来源筛选，`model` 按模型名筛选，`granularity`（`1m`、`30m`、`1h`、`6h`、`12h`、`1d`、`1w`、`1M`）用于时序接口。
+所有接口支持 `from` 和 `to`（YYYY-MM-DD）查询参数。可选：`source`（`claude`、`codex`、`openclaw`、`opencode`、`kiro`、`pi`、`omp`、`grok`、`hermes`）按来源筛选，`model` 按模型名筛选，`granularity`（`1m`、`30m`、`1h`、`6h`、`12h`、`1d`、`1w`、`1M`）用于时序接口。
 
 | 接口 | 说明 |
 |------|------|

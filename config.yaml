@@ -28,6 +28,14 @@ collectors:
     enabled: true
     paths: ["~/.pi/agent/sessions"]
     scan_interval: 60s
+  omp:
+    enabled: true
+    paths: ["~/.omp/agent/sessions"]
+    scan_interval: 60s
+  grok:
+    enabled: true
+    paths: ["~/.grok/sessions"]
+    scan_interval: 60s
   hermes:
     enabled: true
     paths: ["~/.hermes"]

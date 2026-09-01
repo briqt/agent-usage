@@ -10,13 +10,13 @@ Single binary + SQLite — zero infrastructure required.
 
 **[中文文档](README_CN.md)**
 
-Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, and Hermes Agent, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
+Collects local session data from Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, Oh My Pi, Grok Build, and Hermes Agent, calculates costs automatically, and presents token usage, cost trends, and session details through a web dashboard.
 
 ![Dashboard](docs/dashboard.png)
 
 ## Features
 
-- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi session files, OpenCode SQLite database, kiro session/database files, and Hermes Agent state databases directly
+- 📁 **Local file parsing** — reads Claude Code, Codex CLI, OpenClaw, Pi, Oh My Pi, and Grok Build session files, OpenCode SQLite database, kiro session/database files, and Hermes Agent state databases directly
 - 💰 **Automatic cost calculation** — fetches model pricing from [litellm](https://github.com/BerriAI/litellm), supports backfill when prices update
 - 🗄️ **SQLite storage** — single file, zero ops, data is correctable
 - 📊 **Web dashboard** — dark-themed UI with ECharts: cost breakdown, token trends, session list
@@ -34,7 +34,7 @@ mkdir -p ./data && docker compose up -d
 open http://localhost:9800
 ```
 
-The default `docker-compose.yml` does not mount any agent data directories. Uncomment the volume mounts for each agent you have installed (Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, Hermes). Data persists in `./data/`.
+The default `docker-compose.yml` does not mount any agent data directories. Uncomment the volume mounts for each agent you have installed (Claude Code, Codex, OpenClaw, OpenCode, kiro, Pi, Oh My Pi, Grok Build, Hermes). Data persists in `./data/`.
 
 > **Note:** Only enable mounts for agents you actually have installed. Docker creates missing host directories as root, which can interfere with tools like `npx skills add` that detect installed agents by directory existence.
 
@@ -92,6 +92,16 @@ collectors:
     paths:
       - "~/.local/share/kiro-cli/data.sqlite3"
     scan_interval: 60s
+  omp:
+    enabled: true
+    paths:
+      - "~/.omp/agent/sessions"
+    scan_interval: 60s
+  grok:
+    enabled: true
+    paths:
+      - "~/.grok/sessions"
+    scan_interval: 60s
   hermes:
     enabled: true
     paths:
@@ -138,6 +148,8 @@ open http://localhost:9800
 | [OpenCode](https://github.com/anomalyco/opencode) | `~/.local/share/opencode/opencode.db` | SQLite |
 | [kiro](https://kiro.dev) | `~/.local/share/kiro-cli/data.sqlite3` | SQLite |
 | [Pi](https://pi.dev) | `~/.pi/agent/sessions/<workspace>/<session>.jsonl` | JSONL |
+| [Oh My Pi](https://github.com/can1357/oh-my-pi) | `~/.omp/agent/sessions/**/*.jsonl` | JSONL |
+| [Grok Build](https://github.com/xai-org/grok-build) | `~/.grok/sessions/<workspace>/<session>/updates.jsonl` | JSONL |
 | [Hermes Agent](https://github.com/NousResearch/hermes-agent) | `~/.hermes/state.db` + `~/.hermes/profiles/*/state.db` | SQLite |
 
 ### Adding New Sources
@@ -153,7 +165,7 @@ See `internal/collector/claude.go` as a reference implementation.
 
 The web dashboard provides:
 
-- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/kiro/Pi/Hermes), auto-refresh
+- **Sticky top bar** — time presets, granularity, source filter (Claude/Codex/OpenClaw/OpenCode/kiro/Pi/Oh My Pi/Grok Build/Hermes), auto-refresh
 - **Summary cards** — total tokens, cost, sessions, prompts, API calls
 - **Token usage** — stacked bar chart (input/output/cache read/cache write)
 - **Cost trend** — stacked bar chart by model with consistent color mapping
@@ -183,6 +195,10 @@ agent-usage
 │   │   ├── kiro_process.go     # kiro SQLite parser
 │   │   ├── pi.go               # Pi coding agent session scanner
 │   │   ├── pi_process.go       # Pi coding agent JSONL parser
+│   │   ├── omp.go              # Oh My Pi recursive session scanner
+│   │   ├── omp_process.go      # Oh My Pi exact usage parser
+│   │   ├── grok.go             # Grok Build session scanner
+│   │   ├── grok_process.go     # Grok completed-turn usage parser
 │   │   ├── hermes.go           # Hermes Agent state.db scanner
 │   │   └── hermes_process.go   # Hermes Agent SQLite parser
 │   ├── pricing/                # litellm price fetcher + cost formula
@@ -226,7 +242,7 @@ References: [Anthropic pricing](https://platform.claude.com/docs/en/about-claude
 
 ## API Endpoints
 
-All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`, `pi`, `hermes`) to filter by agent, `model` to filter by model name, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
+All endpoints accept `from` and `to` (YYYY-MM-DD) query parameters. Optional: `source` (`claude`, `codex`, `openclaw`, `opencode`, `kiro`, `pi`, `omp`, `grok`, `hermes`) to filter by agent, `model` to filter by model name, `granularity` (`1m`, `30m`, `1h`, `6h`, `12h`, `1d`, `1w`, `1M`) for time-series endpoints.
 
 | Endpoint | Description |
 |----------|-------------|
