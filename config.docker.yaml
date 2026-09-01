@@ -25,6 +25,18 @@ collectors:
       - "/sessions/kiro-cli/data.sqlite3"
       - "/sessions/kiro-sessions"
     scan_interval: 60s
+  pi:
+    enabled: true
+    paths: ["/sessions/pi"]
+    scan_interval: 60s
+  omp:
+    enabled: true
+    paths: ["/sessions/omp"]
+    scan_interval: 60s
+  grok:
+    enabled: true
+    paths: ["/sessions/grok"]
+    scan_interval: 60s
   hermes:
     enabled: true
     paths: ["/sessions/hermes"]

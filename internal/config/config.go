@@ -31,6 +31,8 @@ type CollectorConfigs struct {
 	OpenCode CollectorConfig `yaml:"opencode"`
 	Kiro     CollectorConfig `yaml:"kiro"`
 	Pi       CollectorConfig `yaml:"pi"`
+	OMP      CollectorConfig `yaml:"omp"`
+	Grok     CollectorConfig `yaml:"grok"`
 	Hermes   CollectorConfig `yaml:"hermes"`
 }
 
@@ -98,6 +100,16 @@ func DefaultConfig() *Config {
 				Paths:        []string{filepath.Join(home, ".pi", "agent", "sessions")},
 				ScanInterval: 60 * time.Second,
 			},
+			OMP: CollectorConfig{
+				Enabled:      true,
+				Paths:        []string{filepath.Join(home, ".omp", "agent", "sessions")},
+				ScanInterval: 60 * time.Second,
+			},
+			Grok: CollectorConfig{
+				Enabled:      true,
+				Paths:        []string{filepath.Join(home, ".grok", "sessions")},
+				ScanInterval: 60 * time.Second,
+			},
 			Hermes: CollectorConfig{
 				Enabled:      true,
 				Paths:        []string{filepath.Join(home, ".hermes")},
@@ -155,6 +167,12 @@ func Load(path string) (*Config, error) {
 	}
 	for i, p := range cfg.Collectors.Pi.Paths {
 		cfg.Collectors.Pi.Paths[i] = expandPath(p)
+	}
+	for i, p := range cfg.Collectors.OMP.Paths {
+		cfg.Collectors.OMP.Paths[i] = expandPath(p)
+	}
+	for i, p := range cfg.Collectors.Grok.Paths {
+		cfg.Collectors.Grok.Paths[i] = expandPath(p)
 	}
 	for i, p := range cfg.Collectors.Hermes.Paths {
 		cfg.Collectors.Hermes.Paths[i] = expandPath(p)
