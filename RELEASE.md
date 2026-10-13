@@ -1,5 +1,9 @@
 # Release Guide
 
+> **Historical reference only (2026-10-13):** This project is no longer maintained and is archived. No further releases or hotfixes are planned. The guide below is retained for independently maintained forks.
+>
+> **仅供历史参考（2026-10-13）：** 本项目已停止维护并归档，不再发布新版本或紧急修复。以下流程保留供 fork 后自行维护参考。
+
 本文档描述 agent-usage 的发版流程和规范。
 
 This document describes the release process and conventions for agent-usage.

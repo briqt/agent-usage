@@ -1,5 +1,15 @@
 # agent-usage
 
+> **Archived / no longer maintained (2026-10-13)**
+>
+> This project is no longer maintained and this repository is archived as read-only. No further feature updates, bug fixes, dependency updates, or security fixes will be provided, and issues and pull requests will no longer be reviewed. Existing code, documentation, and releases remain available for reference; you are welcome to fork the project under the Apache-2.0 license.
+>
+> **Recommended alternative: [ccusage](https://github.com/ccusage/ccusage)** ([documentation](https://ccusage.com/)). For everyday token usage and estimated cost reports, ccusage is actively maintained, runs without a server, and supports daily, weekly, monthly, and session reports across multiple coding agents. Get started with `npx ccusage@latest`; use `npx ccusage@latest claude daily` or `npx ccusage@latest codex daily` for a specific source.
+>
+> ccusage is primarily a CLI reporting tool, not a drop-in replacement for this project's Web dashboard, SQLite storage, or REST API. Kiro is not listed among its supported sources as of this notice. It reads agent logs directly, so importing this project's SQLite database is not required. Reported costs are estimates, not billing statements.
+>
+> If you continue using agent-usage, upstream format changes may affect compatibility and statistics. Existing binaries and container images will not receive security updates; restrict dashboard access to trusted environments.
+
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()

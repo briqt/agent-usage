@@ -1,5 +1,15 @@
 # agent-usage
 
+> **停止维护 / 归档公告（2026-10-13）**
+>
+> 本项目已停止维护，仓库归档为只读。后续不再提供功能更新、问题修复、依赖更新或安全修复，也不再处理 Issue 和 Pull Request。现有代码、文档及历史发布版本保留供参考，欢迎遵循 Apache-2.0 许可证 fork 并自行维护。
+>
+> **推荐改用 [ccusage](https://github.com/ccusage/ccusage)**（[使用文档](https://ccusage.com/)）。对于日常 token 用量与费用估算，ccusage 持续维护、无需部署服务，并支持多种编程工具的日、周、月和会话报表。运行 `npx ccusage@latest` 即可开始；也可使用 `npx ccusage@latest claude daily` 或 `npx ccusage@latest codex daily` 查看指定来源。
+>
+> ccusage 主要提供命令行报表，并非本项目 Web 仪表板、SQLite 存储或 REST API 的直接替代；截至本公告，其支持列表未列出 Kiro。它直接读取编程工具的本地日志，无需导入本项目的 SQLite 数据库。报表中的费用是估算值，不等同于实际账单。
+>
+> 如继续使用 agent-usage，上游数据格式变化可能影响兼容性及统计结果。现有二进制与容器镜像不再获得安全更新，请将仪表板访问限制在可信环境内。
+
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)]()

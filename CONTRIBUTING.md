@@ -1,8 +1,8 @@
 # Contributing
 
-感谢你对 agent-usage 的关注！欢迎提交 Issue 和 Pull Request。
+本项目自 2026-10-13 起停止维护并归档，不再接收或处理 Issue 和 Pull Request。以下开发指南仅作为历史参考，或供 fork 后自行维护使用。替代工具建议见 [README](README_CN.md)。
 
-Thanks for your interest in agent-usage! Issues and Pull Requests are welcome.
+This project is no longer maintained and is archived as of 2026-10-13. Issues and pull requests are no longer accepted or reviewed. The development guide below is retained for historical reference and independently maintained forks. See the [README](README.md) for the recommended alternative.
 
 ## Development Setup
 
