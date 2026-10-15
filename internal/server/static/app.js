@@ -35,7 +35,7 @@ const I18N = {
     light: 'Light', dark: 'Dark', system: 'System', autoOn: 'Auto ✓', autoOff: 'Auto',
     input: 'Input', output: 'Output', cacheRead: 'Cache Read', cacheCreate: 'Cache Write',
     gran_1m: '1 min', gran_30m: '30 min', gran_1h: '1 hour', gran_6h: '6 hours', gran_12h: '12 hours', gran_1d: '1 day', gran_1w: '1 week', gran_1M: '1 month',
-    model: 'Model', calls: 'Calls', allSources: 'All Sources', allModels: 'All Models', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi', hermes: 'Hermes',
+    model: 'Model', calls: 'Calls', allSources: 'All Sources', allModels: 'All Models', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi', omp: 'Oh My Pi', grok: 'Grok Build', hermes: 'Hermes',
     filterProject: 'Filter by project...', justNow: 'just now', mAgo: 'm ago', hAgo: 'h ago', dAgo: 'd ago',
     noSessions: 'No sessions found in this period.', unitMin: 'min', unitSec: 'sec'
   },
@@ -50,7 +50,7 @@ const I18N = {
     light: '浅色', dark: '深色', system: '跟随系统', autoOn: '自动 ✓', autoOff: '自动',
     input: '输入', output: '输出', cacheRead: '缓存读取', cacheCreate: '缓存写入',
     gran_1m: '1 分钟', gran_30m: '30 分钟', gran_1h: '1 小时', gran_6h: '6 小时', gran_12h: '12 小时', gran_1d: '1 天', gran_1w: '1 周', gran_1M: '1 个月',
-    model: '模型', calls: '调用次数', allSources: '全部来源', allModels: '全部模型', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi', hermes: 'Hermes',
+    model: '模型', calls: '调用次数', allSources: '全部来源', allModels: '全部模型', claudeCode: 'Claude Code', codex: 'Codex', openClaw: 'OpenClaw', openCode: 'OpenCode', kiro: 'kiro', pi: 'Pi', omp: 'Oh My Pi', grok: 'Grok Build', hermes: 'Hermes',
     filterProject: '按项目筛选...', justNow: '刚刚', mAgo: '分钟前', hAgo: '小时前', dAgo: '天前',
     noSessions: '当前时间段内暂无会话数据。', unitMin: '分钟', unitSec: '秒'
   }
@@ -600,7 +600,7 @@ function buildControls() {
   $('sel-granularity').innerHTML = buildOpts(GRANULARITIES, state.granularity, v => t('gran_' + v));
   $('sel-refresh-interval').innerHTML = buildOpts(REFRESH_INTERVALS, state.refreshInterval, v => v >= 60 ? (v / 60) + ' ' + t('unitMin') : v + ' ' + t('unitSec'));
 
-  const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['opencode', 'openCode'], ['pi', 'pi'], ['kiro', 'kiro'], ['hermes', 'hermes'], ['openclaw', 'openClaw']];
+  const SOURCES = [['', 'allSources'], ['claude', 'claudeCode'], ['codex', 'codex'], ['opencode', 'openCode'], ['pi', 'pi'], ['omp', 'omp'], ['grok', 'grok'], ['kiro', 'kiro'], ['hermes', 'hermes'], ['openclaw', 'openClaw']];
   $('filter-source').innerHTML = SOURCES.map(([v, k]) => `<option value="${v}" ${state.source === v ? 'selected' : ''}>${t(k)}</option>`).join('');
 
   const bar = $('preset-bar');

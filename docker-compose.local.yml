@@ -18,3 +18,5 @@ services:
       - ~/.codex/sessions:/sessions/codex:ro
       - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro
       - ~/.kiro/sessions/cli:/sessions/kiro-sessions:ro
+      - ~/.omp/agent/sessions:/sessions/omp:ro
+      - ~/.grok/sessions:/sessions/grok:ro

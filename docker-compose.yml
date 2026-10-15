@@ -28,6 +28,8 @@ services:
       # - ~/.local/share/kiro-cli:/sessions/kiro-cli:ro
       # - ~/.kiro/sessions/cli:/sessions/kiro-sessions:ro
       # - ~/.pi/agent/sessions:/sessions/pi:ro
+      # - ~/.omp/agent/sessions:/sessions/omp:ro
+      # - ~/.grok/sessions:/sessions/grok:ro
       # - ~/.hermes:/sessions/hermes:ro
       # Optional: custom config override
       - ./config.docker.yaml:/etc/agent-usage/config.yaml:ro
