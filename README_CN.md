@@ -283,7 +283,7 @@ docker build --build-arg GOPROXY=https://goproxy.cn,direct -t agent-usage:local 
 
 ## 社区
 
-欢迎到 [Linux.do](https://linux.do/t/topic/1922004) 参与讨论和反馈。
+[学 AI，上 Linux DO](https://linux.do/)
 
 ## 许可证
 
